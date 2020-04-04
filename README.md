@@ -1,4 +1,4 @@
-## Welcome to GitHub Pages
+## This is a COVID tracker that uses information on tweets to track pandemic
 
 You can use the [editor on GitHub](https://github.com/lc5415/COVIDTracker/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
