@@ -64,6 +64,7 @@ class OriginalListener(StreamListener):
             print(tweet["created_at"], tweet["text"])
         self.counter += 1
         if self.counter >= self.batchsize: #tweet batch size
+            print("\n\n+"+self.batchsize+" tweets have been streamed and stored\n\n")
             self.output.close()
             self.output  = open('%s/%s_%s.json' % (foldername, self.fprefix, time.strftime('%Y%m%d-%H%M%S')), 'w')
             self.counter = 0 # uncomment to keep streaming going
