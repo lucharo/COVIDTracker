@@ -9,9 +9,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectoriz
 import sqlite3
 from textblob import TextBlob
 
-"""
- tweet : "location" + text
-"""
+#
 
 keyword_file_path = "keywords.txt"
 
@@ -96,7 +94,6 @@ data_tweets['prepared_text'] = data_tweets[ ['text'] ].apply(lambda x : prepare_
 #data_tweets['polarity'] = data_tweets[ ['text'] ].apply(lambda t : TextBlob(t['text']).sentiment.polarity, axis = 1)
 
 # new feature : keyword occurences
-"a set of flu-related keywords/terms were used as a set of features for flu-related tweets. The list includes some important influenza-related keywords, symptoms, and treatments"
 # TODO! do this after filtering the urls and mentions but before stemming
 for kw_index, keyword in enumerate(keywords):
   data_tweets[ 'has_keyword_' + str(kw_index) ] = data_tweets[ ['text'] ].apply(lambda t : keyword in t['text'], axis = 1)
@@ -104,11 +101,12 @@ for kw_index, keyword in enumerate(keywords):
 
 # tfidf, ngrams n=1-6
 tfidf_vectorizer = skl_TfidfVectorizer(input = 'content',
-                                     encoding = 'utf8',
-                                     analyzer = 'word',
-                                     token_pattern = r'\w{1,}',
-                                     ngram_range =(1, ngram_max),
-                                     max_features = tfidf_max_nb_tokens)
+                                        encoding = 'utf8',
+                                        analyzer = 'word',
+                                        token_pattern = r'\w{1,}',
+                                        ngram_range =(1, ngram_max),
+                                        max_features = tfidf_max_nb_tokens)
+# TODO:the vectorizer should be fitted only to train data
 tfidf_vectorizer.fit(data_tweets['prepared_text'])
 tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
 
