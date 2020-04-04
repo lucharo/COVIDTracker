@@ -21,10 +21,21 @@ import sys
 import jsonpickle
 import os
 
-searchQuery = "covid"
-maxTweets = 1000
+parser = argparse.ArgumentParser(description='Give some words to search on Twitter(Retrospective)')
+parser.add_argument("--keyword",'-k',type =str, 
+                  help='1+ keyword(s) to track on twitter', nargs='+', default = "covid")
+parser.add_argument('--output','-o', type=str, action = 'store',
+                  help = "Directory name to store streaming results(default: BackSearch)", default = "BackSearch")
+parser.add_argument('--file','-f', type=str, action = 'store',
+                  help = "File name to store streaming results(default: SomeKeywords), automatically saved to csv", default = "SomeKeywords")
+parser.add_argument('--amount','-a', type=int, action = 'store',
+                  help = "Number of tweets to search for (default: 10000)", default = 10000)
+args = parser.parse_args()
+
+searchQuery = args.keyword
+maxTweets = args.amount
 tweetsPerQry = 100 # max set by twitter api
-fName = "LastWeek.csv"
+fName = args.output+"/"+args.file+".csv"
 
 # the api search output SearchObject is an object that can be turned into a list of json str with the _json method
 # the search object itself can be indexed like a list
