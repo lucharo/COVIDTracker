@@ -24,6 +24,22 @@ Options are:
 ```
 python BatchStreamListener.py --keyword key1 key2 ... keyN --output OutputDirName --batch-size 10000 --verbose
 ```
+Stop the stream anytime by clicking CTRL-C. Now your data has been loaded in the output directory. To load the json files in python:
+### Loading results in python/jupyter notebook
+Just input the right output directory
+```
+import json
+import pandas as pd
+import numpy as np
+
+tweets = []
+filedir = "OUTPUT_DIRECTORY"
+for file in os.listdir(filedir):    
+    for tweet in open(filedir+'/'+str(tweet), 'r'):
+        tweets.append(json.loads(tweet))
+
+tweets = pd.DataFrame(tweets)
+```
 
 ## Using `SearchBack.py`
 This script can be used to search for tweets (limited to 1% of all Twitter) that contain a certain keyword or a certain location. Similarly to `BatchStreamListener.py`, this script can be called from the command line with a few options.
