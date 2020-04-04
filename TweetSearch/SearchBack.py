@@ -7,7 +7,9 @@ import json
 import dataset
 from datafreeze import freeze
 import pandas as pd
+import argparse # for command input
 
+print("Authenticating Twitter API keys...")
 # Consumer key authentication
 auth = AppAuthHandler(consumer_key, consumer_secret) #using appauthhandler to retreive at a faster rate
 
@@ -17,6 +19,7 @@ auth = AppAuthHandler(consumer_key, consumer_secret) #using appauthhandler to re
 # Set up the API with the authentication handler
 api = API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify = True)
 
+print("Authentication done.")
 import sys
 import jsonpickle
 import os
@@ -32,6 +35,11 @@ parser.add_argument('--amount','-a', type=int, action = 'store',
                   help = "Number of tweets to search for (default: 10000)", default = 10000)
 args = parser.parse_args()
 
+if not os.path.exists(args.output):
+    os.makedirs(args.output)
+
+print(str(args.amount)+ " tweets, containing the term(s): "+', '.join([str(elem) for elem in args.keyword])+"; will be stored in "+args.output+"/"+args.file) 
+  
 searchQuery = args.keyword
 maxTweets = args.amount
 tweetsPerQry = 100 # max set by twitter api
