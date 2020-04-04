@@ -85,13 +85,11 @@ parser.add_argument("--keyword",'-k',type =str,
 parser.add_argument('--output','-o', type=str, action = 'store',
                   help = "Directory name to store streaming results(default: StreamDir)", default = "StreamDir")
 args = parser.parse_args()
-print(args)
-print(type(args.keyword))
-cont = input("what?")
+
 foldername = args.output
 if not os.path.exists(foldername):
     os.makedirs(foldername)
-print(foldername) 
+print("Saving files to: "+foldername+"/")
 
 keywords_to_track = args.keyword
 # Instantiate the SListener object 
