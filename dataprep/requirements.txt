@@ -1,0 +1,5 @@
+auto-sklearn=>0.6.0
+nltk=>3.4.5
+pandas=>0.25.3
+sklearn-deap2=>0.2.2
+textblob=>0.15.3
