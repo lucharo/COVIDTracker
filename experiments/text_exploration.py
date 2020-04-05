@@ -1,10 +1,14 @@
 
+import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import os
 import pandas as pd
 import re
+from sklearn.cluster import KMeans as skl_KMeans
+#from sklearn.decomposition import PCA as skl_PCA
+from sklearn.decomposition import TruncatedSVD as skl_TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectorizer
 import sqlite3
 from textblob import TextBlob
@@ -30,7 +34,9 @@ ngram_max = 6
 tfidf_max_nb_tokens = 500
 ngram_max = 1
 
+nb_clusters = 8
 
+cluster_colors =[ 'blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'orange' ]
 #
 
 # From https://www.w3resource.com/python-exercises/re/python-re-exercise-42.php
@@ -109,6 +115,46 @@ tfidf_vectorizer = skl_TfidfVectorizer(input = 'content',
 # TODO:the vectorizer should be fitted only to train data
 tfidf_vectorizer.fit(data_tweets['prepared_text'])
 tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
+
+
+# clustering:
+# TODO: using default parameters, could try other parameterrs
+# see https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html
+clusterer = skl_KMeans(n_clusters = nb_clusters)
+clusters = clusterer.fit(tfidf_vectors)
+cluster_labels = clusters.predict(tfidf_vectors)
+
+
+
+PCA_projector = skl_TruncatedSVD(n_components = 3).fit(tfidf_vectors)
+projected_data = PCA_projector.transform(tfidf_vectors)
+
+
+cluster_figure = plt.figure()
+plot = cluster_figure.add_subplot(111, projection = '3d')
+
+for cluster_index in range(nb_clusters):
+  cluster_color = cluster_colors[cluster_index]
+  selected_items = cluster_labels == cluster_index
+  cluster_points = projected_data[selected_items]
+  plot.scatter(cluster_points[ :, 0 ], cluster_points[ :, 1 ], cluster_points[ :, 2 ], c = cluster_color)
+
+plt.show()
+
+
+
+for cluster_index in range(nb_clusters):
+  selected_rows = cluster_labels == cluster_index
+  data_tweets[selected_rows][ ['text'] ].to_csv(f'cluster-{cluster_index}.csv')
+
+
+
+
+
+
+
+
+
 
 
 
