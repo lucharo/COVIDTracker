@@ -1,6 +1,9 @@
 # HOW TO USE COVID TRACKER
 
 ## Setting up repo
+<details>
+ <summary>Expand</summary>
+ 
 1. Clone repo
 ```
 git clone https://github.com/lc5415/COVIDTracker.git
@@ -12,7 +15,12 @@ python3 -m venv tweetCOVID
 source tweetCOVID/bin/activate
 pip install -r requirements.txt
 ```
+</details>
+
 ## Using `BatchStreamListener.py`
+<details>
+ <summary>Expand</summary>
+ 
 This script can be used to start a stream with a given set of keywords and a directory output. Each 10,000 tweets will be stored in separate json files within the output directory. If no output directory is given the results will be stored in `StreamDir/`. For help with script commands type: `BatchStreamListener.py -h` in your command line.
 Options are:
   * `--keyword, -k`: (no default) keywords to search for can be a single word or a list.
@@ -49,8 +57,12 @@ for file in os.listdir(filedir):
 
 tweets = pd.DataFrame(tweets)
 ```
+</details>
 
 ## Using `SearchBack.py`
+<details>
+ <summary>Expand</summary>
+ 
 This script can be used to search for tweets (limited to 1% of all Twitter) that contain a certain keyword or a certain location. Similarly to `BatchStreamListener.py`, this script can be called from the command line with a few options.
 By default, the script will look for 10,000 tweets that contain the teerm "covid" (case insensitive) and store the results in a csv file in the directory BackSearch/ in the file SomeKeywords.json
 Options are:
@@ -74,9 +86,12 @@ import json
 
 tweets = pd.read_json("path/to/file.json", lines = True)
 ```
+</details>
 
 ## Storing new custom region coordinates
-
+<details>
+ <summary>Expand</summary>
+ 
 Twitter has a strict format for location search. To make it easier to track any custom region I have made a script (`DumpingGeoJSONs.py`). The script should be run from the command window. The script will prompt you to enter a region name and thereafter GeoJSON file (raw). The workflow is as follows, go to [http://geojson.io/](http://geojson.io/), select a custom a region in the world map. Then copy the raw json text from the right panel and paste it in the command prompt once you are requested to do so.
 Now your new custom region will be stored in the file `RegionCoords.json`, if the file does not exist it will be created.
-
+</details>
