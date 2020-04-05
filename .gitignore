@@ -1,1 +1,4 @@
 secrets.py
+feelings/
+.ipynb_checkpoints
+.DS_Store
