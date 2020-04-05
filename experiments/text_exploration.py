@@ -1,26 +1,30 @@
 
+import json
 import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+import numpy as np
 import os
 import pandas as pd
 import re
 from sklearn.cluster import KMeans as skl_KMeans
+from sklearn.decomposition import LatentDirichletAllocation as skl_LatentDirichletAllocation
 #from sklearn.decomposition import PCA as skl_PCA
 from sklearn.decomposition import TruncatedSVD as skl_TruncatedSVD
+from sklearn.feature_extraction.text import CountVectorizer as skl_CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectorizer
 import sqlite3
 from textblob import TextBlob
 
 #
 
-keyword_file_path = "keywords.txt"
+keyword_file_path = "keywords-experiments.txt"
 
 tweet_data_file_dir = "."
+tweet_data_file_dir = os.getcwd()
 # NOTE: there should be a separate file for the train and test sets
-#tweet_data_file_name = "tweets-test.csv"
-tweet_data_file_name = "tweets.db"
+tweet_data_file_name = "tweets-experiments.csv"
 
 
 replacement_text_url = 'url'
@@ -45,7 +49,7 @@ regex_url = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-
 # TODO: experimental
 regex_mention = r'[@#][0-9a-zA-Z_\-]+'
 
-rt_filter = " where TweetText not like 'RT %'"
+# rt_filter = " where TweetText not like 'RT %'"
 
 
 def setup_nltk():
@@ -79,25 +83,51 @@ def prepare_text(document):
 
 #
 
-# necessary
+# TOOL SETUP
 stopword_set, stemmer = setup_nltk()
 keywords = read_keyword_list(keyword_file_path)
 
 
+# TEXT PREPARATION
+
+"""
+HERE:
+TODO:
+- read the file(hopefully a csv or easy to read json)
+- check the columns
+- filter for only english tweets, NOTE: read_csv can filter columns and do many other things, use that
+- check the whole process
+"""
+
 #data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name))[ [ 'text' ] ]
-data_tweets = pd.read_sql('select TweetText, Polarity from TrialOne' + rt_filter, sqlite3.connect(os.path.join(tweet_data_file_dir, tweet_data_file_name)), columns =[ 'TweetText', 'Polarity' ])
-data_tweets.rename(columns = { 'TweetText' : 'text', 'Polarity' : 'polarity' }, inplace = True)
+# OLD DATA SOURCE : data_tweets = pd.read_sql('select TweetText, Polarity from TrialOne' + rt_filter, sqlite3.connect(os.path.join(tweet_data_file_dir, tweet_data_file_name)), columns =[ 'TweetText', 'Polarity' ])
+#data_tweets = pd.read_json(os.path.join(tweet_data_file_dir, tweet_data_file_name), lines = True)
+#tweets_json =[ json.loads(line) for line in open(os.path.join(tweet_data_file_dir, tweet_data_file_name), "r") if line.strip() != "" ]
+#data_tweets = pd.DataFrame(tweets_json)
+
+data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name), usecols =['text', 'lang'])
+
+# keeping only english
+data_tweets = data_tweets[data_tweets.lang == 'en'][['text']]
+
+# removing RT's
+data_tweets['RT_filter'] = data_tweets['text'].str.split().str.get(0)
+data_tweets = data_tweets[data_tweets.RT_filter != 'RT'][['text']]
+
+
 
 
 # prepare the text
+#### data_tweetst['text'].str.lower()
 data_tweets['prepared_text'] = data_tweets[ ['text'] ].apply(lambda x : prepare_text(x['text']), axis = 1)
 
+
+# FEATURE CREATION
 
 
 # new feature : sentiment feature...
 # TODO: maybe do this after the filtering of the urls and mentions but before the stemming
-# TODO: this is already provided
-#data_tweets['polarity'] = data_tweets[ ['text'] ].apply(lambda t : TextBlob(t['text']).sentiment.polarity, axis = 1)
+data_tweets['polarity'] = data_tweets[ ['text'] ].apply(lambda t : TextBlob(t['text']).sentiment.polarity, axis = 1)
 
 # new feature : keyword occurences
 # TODO! do this after filtering the urls and mentions but before stemming
@@ -116,6 +146,20 @@ tfidf_vectorizer = skl_TfidfVectorizer(input = 'content',
 tfidf_vectorizer.fit(data_tweets['prepared_text'])
 tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+# CLUSTERING/TOPICS ANALYSIS
 
 # clustering:
 # TODO: using default parameters, could try other parameterrs
@@ -139,6 +183,8 @@ for cluster_index in range(nb_clusters):
   cluster_points = projected_data[selected_items]
   plot.scatter(cluster_points[ :, 0 ], cluster_points[ :, 1 ], cluster_points[ :, 2 ], c = cluster_color)
 
+plot.legend(range(nb_clusters))
+
 plt.show()
 
 
@@ -150,6 +196,51 @@ for cluster_index in range(nb_clusters):
 
 
 
+# LATENT DIRICHLET ALLOCATION
+
+def create_LDA_topics(nb_topics,
+                       count_vectors,
+                       count_vector_vocab,
+                       LDA_learning_method = "online",
+                       LDA_max_iter = 1,
+                       do_create_summaries = True,
+                       nb_top_words = 9):
+  LDA_model = skl_LatentDirichletAllocation(
+        n_components = nb_topics,
+        learning_method = LDA_learning_method,
+        max_iter = LDA_max_iter)
+  topic_decomposition = LDA_model.fit(count_vectors)
+  topic_distribution_over_words = LDA_model.components_
+  vocab = np.array(count_vector_vocab)
+  if(do_create_summaries):
+    topic_summaries = nb_topics *[ [] ]
+    for topic_row_i, topic_row in enumerate(topic_distribution_over_words):
+      unsorted_top_indexes = np.argpartition(topic_row, - nb_top_words)[ - nb_top_words : ]
+      topic_top_indexes = unsorted_top_indexes[
+             np.argsort(topic_row[unsorted_top_indexes])][ :: -1 ]
+      topic_top_words = vocab[topic_top_indexes]
+      topic_summaries[topic_row_i] = " ".join(topic_top_words)
+  if(do_create_summaries):
+    return topic_decomposition, topic_summaries
+  return topic_decomposition
+
+
+def compute_count_vectors(train_corpus, test_corpus = None):
+  count_vector_encoder = skl_CountVectorizer(analyzer = "word", token_pattern = r"\w{1,}")
+  count_vector_encoder.fit(train_corpus)
+  train_count_vectors = count_vector_encoder.transform(train_corpus)
+  if(test_corpus is not None):
+    test_count_vectors = count_vector_encoder.transform(test_corpus)
+  if(test_corpus is not None):
+    return count_vector_encoder, train_count_vectors, test_count_vectors
+  return count_vector_encoder, train_count_vectors
+
+
+count_vector_encoder, count_vectors = compute_count_vectors(data_tweets['prepared_text'])
+count_vector_vocabulary = count_vector_encoder.get_feature_names()
+topic_decomposition, topic_summaries = create_LDA_topics(8, count_vectors, count_vector_vocabulary, nb_top_words = 21)
+for topic_summary in topic_summaries :
+  print(topic_summary)
 
 
 
