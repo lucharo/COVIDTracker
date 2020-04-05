@@ -1,0 +1,5 @@
+fever
+cough
+lack of smell
+lack of taste
+
