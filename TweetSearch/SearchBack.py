@@ -33,8 +33,8 @@ parser.add_argument('--file','-f', type=str, action = 'store',
                   help = "File name to store streaming results(default: SomeKeywords), automatically saved to csv", default = "SomeKeywords")
 parser.add_argument('--amount','-a', type=int, action = 'store',
                   help = "Number of tweets to search for (default: 10000)", default = 10000)
-parser.add_argument('--avoid-retweets','-art', dest='avoidretweets', action='store_false', help="Whether to avoid retweets and only go straight to the source or not (default: True)")
-parser.set_defaults(avoidretweets=True)
+parser.add_argument('--include-retweets','-rt', dest='include_retweets', action='store_true', help="Whether to include retweets or not (default: False)")
+parser.set_defaults(avoid_retweets=False)
 args = parser.parse_args()
 
 if not args.keyword:
@@ -43,13 +43,17 @@ if not args.keyword:
 if not os.path.exists(args.output):
     os.makedirs(args.output)
 
-print(str(args.amount)+ " tweets, containing the term(s): "+', '.join([str(elem) for elem in args.keyword])+"; will be stored in "+args.output+"/"+args.file+".csv") 
+retweet_notice = " not " if not args.include_retweets else " "
+print(str(args.amount)+ " tweets, containing the term(s): "+', '.join([str(elem) for elem in args.keyword])+"; will be stored in "+args.output+"/"+args.file+".json and retweets will"+ retweet_notice + "be fetched in your search.") 
   
-searchQuery = args.keyword
+searchQuery = ' OR '.join(elem for elem in args.keyword)
 maxTweets = args.amount
 tweetsPerQry = 100 # max set by twitter api
-fName = args.output+"/"+args.file+".csv"
+fName = args.output+"/"+args.file+".json"
 
+if not args.include_retweets:
+    searchQuery += " -filter:retweets"
+print("Your query is: " + searchQuery)
 # the api search output SearchObject is an object that can be turned into a list of json str with the _json method
 # the search object itself can be indexed like a list
 sinceID = None # no lower limit (as far as necessary)
@@ -61,92 +65,38 @@ tweetCount = 0
 
 print("Downloading max {0} tweets".format(maxTweets))
 
-if not args.avoidretweets:
-    with open(fName, 'w') as f:
-        while tweetCount < maxTweets:
-            try:
-                if (maxID<=0):
-                    # if your maxID is negative (1st iteration) do this
-                    if (not sinceID):
-                        new_tweets = api.search(q=searchQuery, count = tweetsPerQry)
-                    else: # if sinceID exists set sinceID as that minimum
-                        new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                                since_id=sinceID)
-                else: # if maxID is positive ? 
-                    if (not sinceID): # if sinceID not defined don't set low boundary
-                        new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                                max_id=str(maxID - 1))
-                    else: # if sinceID exist set low and up boundary
-                        new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                                max_id=str(maxID - 1),
-                                                since_id=sinceID)
-                if not new_tweets:
-                    print("No more tweets found")
-                    break
-                for tweet in new_tweets:
-                    f.write(jsonpickle.encode(tweet._json))
-                tweetCount += len(new_tweets)
-                print("Downloaded {0} tweets".format(tweetCount))
-                maxID = new_tweets[-1].id # set maxID to the latest ID in the previous search
-            except TweepError as e:
-                # Just exit if any error
-                print("some error : " + str(e))
+with open(fName, 'w') as f:
+    while tweetCount < maxTweets:
+        try:
+            if (maxID<=0):
+                # if your maxID is negative (1st iteration) do this
+                if (not sinceID):
+                    new_tweets = api.search(q=searchQuery, count = tweetsPerQry)
+                else: # if sinceID exists set sinceID as that minimum
+                    new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
+                                            since_id=sinceID)
+            else: # if maxID is positive ? 
+                if (not sinceID): # if sinceID not defined don't set low boundary
+                    new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
+                                            max_id=str(maxID - 1))
+                else: # if sinceID exist set low and up boundary
+                    new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
+                                            max_id=str(maxID - 1),
+                                            since_id=sinceID)
+            if not new_tweets:
+                print("No more tweets found")
                 break
-    print ("Downloaded {0} tweets, Saved to {1}".format(tweetCount, fName))
+            for tweet in new_tweets:
+                f.write(json.dumps(tweet._json)+"\n") # tweet._json gets you the tweet as a dict
+                                                 # json.dumps gets you the tweet from a dict to a json str
+            tweetCount += len(new_tweets)
+            print("Downloaded {0} tweets".format(tweetCount))
+            maxID = new_tweets[-1].id # set maxID to the latest ID in the previous search
+        except TweepError as e:
+            # Just exit if any error
+            print("some error : " + str(e))
+            break
+print ("Downloaded {0} tweets, Saved to {1}".format(tweetCount, fName))
 
-else:
-    '''
-    This script avoids retweets and avoid duplicates as many tweets may be retweeting the same thing
-    '''
-    print("Avoiding retweets, fetching original tweets only")
-    readyFetchedIDs = []
-    with open(fName, 'w') as f:
-        while tweetCount < maxTweets:
-            try:
-                if (maxID<=0):
-                    # if your maxID is negative (1st iteration) do this
-                    if (not sinceID):
-                        new_tweets = api.search(q=searchQuery, count = tweetsPerQry)
-                    else: # if sinceID exists set sinceID as that minimum
-                        new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                                since_id=sinceID)
-                else: # if maxID is positive ? 
-                    if (not sinceID): # if sinceID not defined don't set low boundary
-                        new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                                max_id=str(maxID - 1))
-                    else: # if sinceID exist set low and up boundary
-                        new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                                max_id=str(maxID - 1),
-                                                since_id=sinceID)
-                if not new_tweets:
-                    print("No more tweets found")
-                    break
-                absolutelyNewTweets = 0    
-                for tweet in new_tweets:
-                    tweetdict = tweet._json # make tweet into a dict
-                    while "retweeted_status" in tweetdict: # if the tweet comes from a retweet
-                        '''
-                        Bare in mind some tweets retweets could be retweets themselves but that is rare
-                        #print("RT" if "retweeted_status" in tweetdict["retweeted_status"] else "original")
-                        '''
-                        originalID = tweetdict["retweeted_status"]["id"]
-                        oriTweet = api.get_status(originalID)
-                        # overwrite current tweet with original tweet so that original
-                        # tweet is stored
-                        tweetdict = oriTweet._json 
-                    if tweetdict["id"] in readyFetchedIDs:
-                        pass # if tweet already stored don't store it
-                    else: # if tweet id is new store it and the id to the id  history and add that we have a new tweet
-                        f.write(jsonpickle.encode(tweetdict))
-                        readyFetchedIDs.append(tweetdict["id"])
-                        absolutelyNewTweets +=1
-                        
-                tweetCount += absolutelyNewTweets
-                print("Downloaded {0} tweets".format(tweetCount))
-                maxID = new_tweets[-1].id # set maxID to the latest ID in the previous search
-            except TweepError as e:
-                # Just exit if any error
-                print("some error : " + str(e))
-                break
-    print ("Downloaded {0} tweets, Saved to {1}".format(tweetCount, fName))
-    
+
+
