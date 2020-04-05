@@ -40,7 +40,6 @@ Just input the right output directory
 import os
 import json
 import pandas as pd
-import numpy as np
 
 tweets = []
 filedir = "OUTPUT_DIRECTORY"
@@ -58,6 +57,7 @@ Options are:
   * `--keyword, -k`: (no default)  keywords to search for can be a single word or a list.
   * `--output, -o`: (default: BackSearch) Output directory to store results
   * `--file, -f`: (default: SomeKeywords), File name of json file where all search results will be stored
+  * `--output-format, -of`: (default: json)[other options csv] if csv option is called, the search output will be stored in a csv file in addition to the json file.
   * `--amount, -a`: (default: 10000), Number of tweets to search 
   * `--include-retweets, -rt`: (default: False) whether to include retweets in search results or not. 
 
@@ -71,12 +71,8 @@ python SearchBack.py --keyword key1 key2 ... keyN --output OutputDirName --file 
 ```
 import pandas as pd
 import json
-tweets = []
 
-for line in open("BackSearch/SomeKeywords.json", "r"):
-    tweets.append(json.loads(line))
-tweets = pd.DataFrame(tweets)
-tweets
+tweets = pd.read_json("path/to/file.json", lines = True)
 ```
 
 ## Storing new custom region coordinates
