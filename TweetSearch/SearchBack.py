@@ -34,7 +34,7 @@ parser.add_argument('--file','-f', type=str, action = 'store',
 parser.add_argument('--amount','-a', type=int, action = 'store',
                   help = "Number of tweets to search for (default: 10000)", default = 10000)
 parser.add_argument('--include-retweets','-rt', dest='include_retweets', action='store_true', help="Whether to include retweets or not (default: False)")
-parser.set_defaults(avoid_retweets=False)
+parser.set_defaults(include_retweets=False)
 args = parser.parse_args()
 
 if not args.keyword:
@@ -87,6 +87,8 @@ with open(fName, 'w') as f:
                 print("No more tweets found")
                 break
             for tweet in new_tweets:
+                # a json file is basically one json str after the other
+                # a json string itselff it's just a dictionary in text format
                 f.write(json.dumps(tweet._json)+"\n") # tweet._json gets you the tweet as a dict
                                                  # json.dumps gets you the tweet from a dict to a json str
             tweetCount += len(new_tweets)

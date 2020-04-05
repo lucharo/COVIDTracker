@@ -43,10 +43,29 @@ tweets = pd.DataFrame(tweets)
 
 ## Using `SearchBack.py`
 This script can be used to search for tweets (limited to 1% of all Twitter) that contain a certain keyword or a certain location. Similarly to `BatchStreamListener.py`, this script can be called from the command line with a few options.
-By default, the script will look for 10,000 tweets that contain the teerm "covid" (case insensitive) and store the results in a csv file in the directory BackSearch/ in the file SomeKeywords.csv 
+By default, the script will look for 10,000 tweets that contain the teerm "covid" (case insensitive) and store the results in a csv file in the directory BackSearch/ in the file SomeKeywords.json
+Options are:
+  * `--keyword, -k`: (no default)  keywords to search for can be a single word or a list.
+  * `--output, -o`: (default: BackSearch) Output directory to store results
+  * `--file, -f`: (default: SomeKeywords), File name of json file where all search results will be stored
+  * `--amount, -a`: (default: 10000), Number of tweets to search 
+  * `--include-retweets, -rt`: (default: False) whether to include retweets in search results or not. 
 
 * Run `SearchBack.py`
 ```
-python SearchBack.py --keyword key1 key2 ... keyN --output OutputDirName --file OutputFileName --amount 10000 
+python SearchBack.py --keyword key1 key2 ... keyN --output OutputDirName --file OutputFileName --amount 10000 --include-retweets 
+```
+
+### To load the output file from `SearchBack.py`
+
+```
+import pandas as pd
+import json
+tweets = []
+
+for line in open("BackSearch/SomeKeywords.json", "r"):
+    tweets.append(json.loads(line))
+tweets = pd.DataFrame(tweets)
+tweets
 ```
 
