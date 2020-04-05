@@ -7,6 +7,7 @@ import os
 import jsonpickle
 import dataset
 import pandas as pd
+import numpy as np
 from datafreeze import freeze
 import argparse
 from tweepy.streaming import StreamListener
@@ -61,14 +62,15 @@ class OriginalListener(StreamListener):
 
     def on_status(self, status):
         self.output.write(status)
-        
+        tweet = json.loads(status)
         if self.locationANDkey:
             '''Performs search within streaming tweets (not optimal)'''
-            if args.keyword not in json.loads(status)["text"]:
+            if not any(word in tweet["text"] for word in args.keyword):
+                if self.verbose:
+                    print("Found tweet in location but no matching keywords were found.")
                 return 
         
         if self.verbose:
-            tweet = json.loads(status)
             print(tweet["created_at"], tweet["text"])
         self.counter += 1
         if self.counter >= self.batchsize: #tweet batch size
@@ -103,7 +105,7 @@ parser = argparse.ArgumentParser(description='Give some words to track on Twitte
 parser.add_argument("--keyword",'-k',type =str, 
                   help='1+ keyword(s) to track on twitter', nargs='+')
 parser.add_argument("--location",'-l',type =str, 
-                  help='City or region to track on twitter')
+                  help='City or region to track on twitter', nargs = '+')
 parser.add_argument("--coordinates",'-cord',type =float, 
                   help='Custom region defined by polygon coordinates to track. You should give coordinates of the southwest corner first and then the coordinates or the northeast corner (format: longitude latitude (~ x y))', nargs='+')
 parser.add_argument('--output','-o', type=str, action = 'store',
@@ -114,31 +116,49 @@ parser.set_defaults(verbose=False)
 args = parser.parse_args()
 
 if not args.keyword and not args.location and not args.coordinates:
-    raise Exception("No keyword, location or coordinates provided, please entereither of those argument to start a search")
+    raise Exception("No keyword, location or coordinates provided, please enter either of those arguments to start a search.")
 
-
-args.location = args.location.lower()
 RegionDictionary = []
 with open("RegionCoords.json", 'r') as file:
     for line in file:
         RegionDictionary.append(json.loads(line))
 RegionDictionary = pd.DataFrame(RegionDictionary)
-print(RegionDictionary)
-print(args.location)
-print(type(args.location))
-print(type(RegionDictionary["Region"]))
-print(type(RegionDictionary["Region"].values))
 
-if args.location and (args.location in RegionDictionary["Region"].values):
-    coords_from_location = list(RegionDictionary[RegionDictionary.Region == args.location].values[0][1:])
+args.location = [location.lower() for location in args.location] if args.location else None
+
+if args.location and any(location in RegionDictionary["Region"].values for location in args.location):
+    # match input argument 
+    regions_in_both = set(RegionDictionary["Region"]) & set(args.location)
+    
+    #warn of the unknown values
+    if any(location not in RegionDictionary["Region"].values for location in args.location):
+        print("Warning, location(s): "+
+              ', '.join(elem for elem in list(set(args.location).difference(set(RegionDictionary["Region"]))))+
+              "; are not known")
+        
+    # take coordinates of matching regions
+    coords_from_location = list(
+        RegionDictionary[RegionDictionary["Region"].values == list(regions_in_both)
+        ].values
+    )
+    
+    # remove cities so that it can be passed to locations argument
+    coords_from_location = list(
+        np.array(
+            [coords[1:] for coords in coords_from_location]
+        ).flatten()
+    )
+    
+elif args.coordinates:
+    pass 
 else:
     raise Exception("Input location not available in RegionCoords.json, please enter a valid location or alternatively add the region to the json file with the help of the DumpingJSONs script or by inputting the coordinates manually with the --coordinates argument")
     
-    
+print(coords_from_location)
 print(args)
 print("Streaming results with tweets containing: "+(', '.join([str(elem) for elem in args.keyword]) if args.keyword else "NO KEYWORDS")+
-      "; will be stored in the directory "+args.output+"/ . Verbose output is "+("enabled" if args.verbose else "disabled")+
-     ". Location search has been "+("enabled." if args.location or args.coordinates else "disabled."))
+      "; will be stored in the directory "+args.output+"/.\nVerbose output is "+("enabled" if args.verbose else "disabled")+
+     ".\nLocation search has been "+("enabled." if args.location or args.coordinates else "disabled."))
 
 foldername = args.output
 if not os.path.exists(foldername):
