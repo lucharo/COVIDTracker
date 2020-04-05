@@ -25,6 +25,7 @@ tweet_data_file_dir = "."
 tweet_data_file_dir = os.getcwd()
 # NOTE: there should be a separate file for the train and test sets
 tweet_data_file_name = "tweets-experiments.csv"
+#tweet_data_file_name = "tweets-experiments.json"
 
 
 replacement_text_url = 'url'
@@ -90,22 +91,19 @@ keywords = read_keyword_list(keyword_file_path)
 
 # TEXT PREPARATION
 
-"""
-HERE:
-TODO:
-- read the file(hopefully a csv or easy to read json)
-- check the columns
-- filter for only english tweets, NOTE: read_csv can filter columns and do many other things, use that
-- check the whole process
-"""
-
 #data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name))[ [ 'text' ] ]
 # OLD DATA SOURCE : data_tweets = pd.read_sql('select TweetText, Polarity from TrialOne' + rt_filter, sqlite3.connect(os.path.join(tweet_data_file_dir, tweet_data_file_name)), columns =[ 'TweetText', 'Polarity' ])
 #data_tweets = pd.read_json(os.path.join(tweet_data_file_dir, tweet_data_file_name), lines = True)
 #tweets_json =[ json.loads(line) for line in open(os.path.join(tweet_data_file_dir, tweet_data_file_name), "r") if line.strip() != "" ]
 #data_tweets = pd.DataFrame(tweets_json)
 
-data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name), usecols =['text', 'lang'])
+data_file_extension = os.path.splitext(tweet_data_file_name)[-1]
+if(data_file_extension == '.csv'):
+  data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name), usecols =['text', 'lang'])
+elif(data_file_extension == '.json'):
+  data_tweets = pd.read_json(os.path.join(tweet_data_file_dir, tweet_data_file_name), lines = True)[ ['text', 'lang'] ]
+else :
+  raise Exception("???")
 
 # keeping only english
 data_tweets = data_tweets[data_tweets.lang == 'en'][['text']]
