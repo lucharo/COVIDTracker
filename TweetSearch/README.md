@@ -28,6 +28,7 @@ Stop the stream anytime by clicking CTRL-C. Now your data has been loaded in the
 ### Loading results in python/jupyter notebook
 Just input the right output directory
 ```
+import os
 import json
 import pandas as pd
 import numpy as np
@@ -35,7 +36,7 @@ import numpy as np
 tweets = []
 filedir = "OUTPUT_DIRECTORY"
 for file in os.listdir(filedir):    
-    for tweet in open(filedir+'/'+str(tweet), 'r'):
+    for tweet in open(os.path.join(filedir,file), 'r'):
         tweets.append(json.loads(tweet))
 
 tweets = pd.DataFrame(tweets)
