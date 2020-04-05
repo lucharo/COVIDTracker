@@ -7,6 +7,7 @@ import json
 import dataset
 from datafreeze import freeze
 import pandas as pd
+import csv
 import argparse # for command input
 
 print("Authenticating Twitter API keys...")
@@ -31,6 +32,7 @@ parser.add_argument('--output','-o', type=str, action = 'store',
                   help = "Directory name to store streaming results(default: BackSearch)", default = "BackSearch")
 parser.add_argument('--file','-f', type=str, action = 'store',
                   help = "File name to store streaming results(default: SomeKeywords), automatically saved to csv", default = "SomeKeywords")
+parser.add_argument('--output-format', '-of', help = "Output format of choice (default: json)", type = str, default = "json")
 parser.add_argument('--amount','-a', type=int, action = 'store',
                   help = "Number of tweets to search for (default: 10000)", default = 10000)
 parser.add_argument('--include-retweets','-rt', dest='include_retweets', action='store_true', help="Whether to include retweets or not (default: False)")
@@ -64,7 +66,7 @@ tweetCount = 0
 
 
 print("Downloading max {0} tweets".format(maxTweets))
-
+firstTweet = True
 with open(fName, 'w') as f:
     while tweetCount < maxTweets:
         try:
@@ -90,15 +92,23 @@ with open(fName, 'w') as f:
                 # a json file is basically one json str after the other
                 # a json string itselff it's just a dictionary in text format
                 f.write(json.dumps(tweet._json)+"\n") # tweet._json gets you the tweet as a dict
-                                                 # json.dumps gets you the tweet from a dict to a json str
+                # json.dumps gets you the tweet from a dict to a json str
             tweetCount += len(new_tweets)
             print("Downloaded {0} tweets".format(tweetCount))
             maxID = new_tweets[-1].id # set maxID to the latest ID in the previous search
         except TweepError as e:
             # Just exit if any error
             print("some error : " + str(e))
-            break
+            break            
 print ("Downloaded {0} tweets, Saved to {1}".format(tweetCount, fName))
 
+if args.output_format == "csv":
+    tweets = []
+    for line in open(args.output+"/"+args.file+".json", "r"):
+        tweets.append(json.loads(line))
+    tweets = pd.DataFrame(tweets)
+    tweets = tweets.iloc[:,1:]
+    tweets.to_csv(args.output+"/"+args.file+".csv")
 
+    print("For convenience, a csv copy of the file was saved.")
 
