@@ -66,7 +66,7 @@ tweets = pd.DataFrame(tweets)
 This script can be used to search for tweets (limited to 1% of all Twitter) that contain a certain keyword or a certain location. Similarly to `BatchStreamListener.py`, this script can be called from the command line with a few options.
 By default, the script will look for 10,000 tweets that contain the teerm "covid" (case insensitive) and store the results in a csv file in the directory BackSearch/ in the file SomeKeywords.json
 Options are:
-  * `--keyword, -k`: (no default)  keywords to search for can be a single word or a list.
+  * `--query, -q`: (no default) query to start search. Please read [Twitter standard search operators](https://developer.twitter.com/en/docs/tweets/rules-and-filtering/overview/standard-operators) before starting a search. An understanding of [the order of precedence of logical operators](https://www.bouraspage.com/repository/algorithmic-thinking/what-is-the-order-of-precedence-of-logical-operators) help.
   * `--output, -o`: (default: BackSearch) Output directory to store results
   * `--file, -f`: (default: SomeKeywords), File name of json file where all search results will be stored
   * `--output-format, -of`: (default: json)[other options csv] if csv option is called, the search output will be stored in a csv file in addition to the json file.
@@ -75,7 +75,16 @@ Options are:
 
 * Run `SearchBack.py`
 ```
-python SearchBack.py --keyword key1 key2 ... keyN --output OutputDirName --file OutputFileName --amount 10000 --include-retweets 
+python SearchBack.py --query "(key1 AND key2) OR key3 -key4)" --output OutputDirName --file OutputFileName --amount 10000 --include-retweets 
+```
+
+Many queries are possible as well as filtering of retweets or selecting only tweets in certain languages. __Some example searches:__
+```
+# tweets containining the terms trump OR sanders AND covid
+-q "(trump OR sanders) AND covid" -a 1000 
+# tweets containing either of these symptoms, 'loss of smell' will match exactly loss of smell and lang:en will ensure we only get tweets in english
+-q "cough OR cold OR symptom OR symptoms OR fever OR 'loss of smell' lang:en"
+
 ```
 
 ### To load the output file from `SearchBack.py`

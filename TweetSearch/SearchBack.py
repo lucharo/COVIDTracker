@@ -26,29 +26,40 @@ import jsonpickle
 import os
 
 parser = argparse.ArgumentParser(description='Give some words to search on Twitter(Retrospective)')
-parser.add_argument("--keyword",'-k',type =str, 
-                  help='1+ keyword(s) to track on twitter', nargs='*')
+
+parser.add_argument("--query",'-q',type =str, 
+                  help='Query to use for search(the use of brackets is important), for more info visit: https://developer.twitter.com/en/docs/tweets/rules-and-filtering/overview/standard-operators', nargs='*')
+
 parser.add_argument('--output','-o', type=str, action = 'store',
                   help = "Directory name to store streaming results(default: BackSearch)", default = "BackSearch")
+
 parser.add_argument('--file','-f', type=str, action = 'store',
                   help = "File name to store streaming results(default: SomeKeywords), automatically saved to csv", default = "SomeKeywords")
+
 parser.add_argument('--output-format', '-of', help = "Output format of choice (default: json)", type = str, default = "json")
-parser.add_argument('--amount','-a', type=int, action = 'store',
-                  help = "Number of tweets to search for (default: 10000)", default = 10000)
+
+parser.add_argument('--amount','-a', type=int, action = 'store', help = "Number of tweets to search for (default: 10000)", default = 10000)
+
 parser.add_argument('--include-retweets','-rt', dest='include_retweets', action='store_true', help="Whether to include retweets or not (default: False)")
+
 parser.set_defaults(include_retweets=False)
 args = parser.parse_args()
 
-if not args.keyword:
-    raise Exception("No keyword entered, please enter keyword to search for")
+if not args.query:
+    raise Exception("No query entered, please enter query to start search")
+else:
+    args.query = ''.join(args.query)
 
 if not os.path.exists(args.output):
     os.makedirs(args.output)
 
+print(args.query)
+print(type(args.query))
 retweet_notice = " not " if not args.include_retweets else " "
-print(str(args.amount)+ " tweets, containing the term(s): "+', '.join([str(elem) for elem in args.keyword])+"; will be stored in "+args.output+"/"+args.file+".json and retweets will"+ retweet_notice + "be fetched in your search.") 
+print(str(args.amount)+ " tweets, using the query: "+str(args.query)+
+    "; will be stored in "+args.output+"/"+args.file+".json and retweets will"+ retweet_notice + "be fetched in your search.") 
   
-searchQuery = ' OR '.join(elem for elem in args.keyword)
+searchQuery = args.query
 maxTweets = args.amount
 tweetsPerQry = 100 # max set by twitter api
 fName = args.output+"/"+args.file+".json"
