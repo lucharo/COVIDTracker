@@ -125,36 +125,44 @@ with open("RegionCoords.json", 'r') as file:
 RegionDictionary = pd.DataFrame(RegionDictionary)
 
 args.location = [location.lower() for location in args.location] if args.location else None
-
-if args.location and any(location in RegionDictionary["Region"].values for location in args.location):
-    # match input argument 
-    regions_in_both = set(RegionDictionary["Region"]) & set(args.location)
-    
-    #warn of the unknown values
-    if any(location not in RegionDictionary["Region"].values for location in args.location):
-        print("Warning, location(s): "+
-              ', '.join(elem for elem in list(set(args.location).difference(set(RegionDictionary["Region"]))))+
-              "; are not known")
-        
-    # take coordinates of matching regions
-    coords_from_location = list(
-        RegionDictionary[RegionDictionary["Region"].values == list(regions_in_both)
-        ].values
-    )
-    
-    # remove cities so that it can be passed to locations argument
-    coords_from_location = list(
-        np.array(
-            [coords[1:] for coords in coords_from_location]
-        ).flatten()
-    )
-    
-elif args.coordinates:
-    pass 
+print(args.location)
+if args.location:
+    print(True)
 else:
-    raise Exception("Input location not available in RegionCoords.json, please enter a valid location or alternatively add the region to the json file with the help of the DumpingJSONs script or by inputting the coordinates manually with the --coordinates argument")
+    print(False)
+
+if args.location or args.coordinates:
+    if args.location and any(location in RegionDictionary["Region"].values for location in args.location):
+        '''If the user has entered a location and the location is available do this'''
+        # match input argument 
+        regions_in_both = set(RegionDictionary["Region"]) & set(args.location)
+        
+        #warn of the unknown values
+        if any(location not in RegionDictionary["Region"].values for location in args.location):
+            print("Warning, location(s): "+
+                  ', '.join(elem for elem in list(set(args.location).difference(set(RegionDictionary["Region"]))))+
+                  "; are not known")
+            
+        # take coordinates of matching regions
+        coords_from_location = list(
+            RegionDictionary[RegionDictionary["Region"].values == list(regions_in_both)
+            ].values
+        )
+        
+        # remove cities so that it can be passed to locations argument
+        coords_from_location = list(
+            np.array(
+                [coords[1:] for coords in coords_from_location]
+            ).flatten()
+        )
+        
+    elif args.coordinates:
+        '''If the user has not entered a location or '''
+        pass 
+    else:
+        raise Exception("Input location not available in RegionCoords.json, please enter a valid location or alternatively add the region to the json file with the help of the DumpingJSONs script or by inputting the coordinates manually with the --coordinates argument")
     
-print(coords_from_location)
+
 print(args)
 print("Streaming results with tweets containing: "+(', '.join([str(elem) for elem in args.keyword]) if args.keyword else "NO KEYWORDS")+
       "; will be stored in the directory "+args.output+"/.\nVerbose output is "+("enabled" if args.verbose else "disabled")+
