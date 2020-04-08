@@ -14,8 +14,13 @@ import sys
 
 # In[86]:
 
+data_file_name = 'SymptomsClean.json'
+if (len (sys . argv) > 1) :
+  data_file_name = sys . argv [1]
 
-symptoms = pd.read_json("SymptomsClean.json", lines = True)
+
+symptoms = pd.read_json(data_file_name, lines = True)
+
 
 
 # In[87]:
@@ -43,7 +48,7 @@ else:
     percentage_progress = 100*(len(symptoms) - len(yet_to_label))/len(symptoms)
     
     print("\nWelcome back "+labeller+", resume labelling where you left it!\n"+
-         "Luis's Progress: "+str((len(symptoms) - len(yet_to_label)))+"/"+
+         "Progress: "+str((len(symptoms) - len(yet_to_label)))+"/"+
           str(len(symptoms))+" ("+str(round(percentage_progress,2))+"%)")
 
 
@@ -73,8 +78,15 @@ class LabelPrompter():
             while np.isnan(symptoms.loc[tweet_index, self.labeller]):
                 print("Index: "+str(tweet_index))
                 print(symptoms.loc[tweet_index, "text"])
-                label = int(input("Report label:\n Symptom - 1\n No Symptom 0\n"+
-                                  " Ambiguous - 9\n DELETE - 5\n LEAVE NOW - < 0\n"))
+                label_has_been_input = False
+                while (not label_has_been_input) :
+                  try :
+                    label = int(input("Report label:\n Symptom - 1\n No Symptom 0\n"+
+                                      " Ambiguous - 9\n DELETE - 5\n LEAVE NOW - < 0\n"))
+                  except (ValueError) :
+                    print ("ERROR: input is not a number, trying again.")
+                  else :
+                    label_has_been_input = True
                 if label in [0,1,9]:
                     # update value
                     symptoms.loc[tweet_index, self.labeller] = label
@@ -82,7 +94,7 @@ class LabelPrompter():
                     self.yet_to_label = symptoms[symptoms[self.labeller].isna()].index.to_list()
                     random.shuffle(self.yet_to_label)
                     # save results
-                    symptoms.to_json("SymptomsClean.json", orient = "records", lines = True)
+                    symptoms.to_json(data_file_name, orient = "records", lines = True)
                     os.system("clear")
                 elif label == 5:
                     symptoms.drop([tweet_index], inplace = True)
@@ -92,7 +104,7 @@ class LabelPrompter():
                     self.yet_to_label = symptoms[symptoms[self.labeller].isna()].index.to_list()
                     random.shuffle(self.yet_to_label)
                     # save results
-                    symptoms.to_json("SymptomsClean.json", orient = "records", lines = True)
+                    symptoms.to_json(data_file_name, orient = "records", lines = True)
                     os.system("clear")
                     print("Previous tweet deleted.\n")
                     break #break the while loop
