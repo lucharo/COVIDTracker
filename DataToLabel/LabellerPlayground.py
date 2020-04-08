@@ -85,16 +85,16 @@ class LabelPrompter():
                     symptoms.to_json("SymptomsClean.json", orient = "records", lines = True)
                     os.system("clear")
                 elif label == 5:
-                    print("Tweet deleted")
                     symptoms.drop([tweet_index], inplace = True)
                     #remove from yet_to_label too
-                    yet_to_label.remove(tweet_index)
+                    self.yet_to_label.remove(tweet_index)
                     #update stuff
                     self.yet_to_label = symptoms[symptoms[self.labeller].isna()].index.to_list()
                     random.shuffle(self.yet_to_label)
                     # save results
                     symptoms.to_json("SymptomsClean.json", orient = "records", lines = True)
                     os.system("clear")
+                    print("Previous tweet deleted.\n")
                     break #break the while loop
                 elif label <0:
                     print("Thanks for your work today!")
