@@ -3,3 +3,4 @@ feelings/
 MillionSearchBroad/
 .ipynb_checkpoints
 .DS_Store
+experiments/tweets-experiments.csv
