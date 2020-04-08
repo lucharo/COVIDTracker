@@ -84,18 +84,18 @@ with open(fName, 'w') as f:
             if (maxID<=0):
                 # if your maxID is negative (1st iteration) do this
                 if (not sinceID):
-                    new_tweets = api.search(q=searchQuery, count = tweetsPerQry)
+                    new_tweets = api.search(q=searchQuery, count = tweetsPerQry, tweet_mode = "extended")
                 else: # if sinceID exists set sinceID as that minimum
                     new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                            since_id=sinceID)
+                                            since_id=sinceID, tweet_mode = "extended")
             else: # if maxID is positive ? 
                 if (not sinceID): # if sinceID not defined don't set low boundary
                     new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
-                                            max_id=str(maxID - 1))
+                                            max_id=str(maxID - 1), tweet_mode = "extended")
                 else: # if sinceID exist set low and up boundary
                     new_tweets = api.search(q=searchQuery, count=tweetsPerQry,
                                             max_id=str(maxID - 1),
-                                            since_id=sinceID)
+                                            since_id=sinceID, tweet_mode = "extended")
             if not new_tweets:
                 print("No more tweets found")
                 break
