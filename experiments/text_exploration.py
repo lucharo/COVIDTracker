@@ -21,19 +21,20 @@ import fasttext
 
 #
 
-keyword_file_path = "keywords-experiments.txt"
+keyword_file_path = 'keywords-experiments.txt'
 
 #tweet_data_file_dir = "."
-tweet_data_file_dir = "../COVIDTracker/DataToLabel"
+tweet_data_file_dir = '../COVIDTracker/DataToLabel'
 #tweet_data_file_dir = os.getcwd()
 # NOTE: there should be a separate file for the train and test sets
-#tweet_data_file_name = "tweets-experiments.csv"
-#tweet_data_file_name = "tweets-experiments.json"
-tweet_data_file_name = "alexandre.json"
+#tweet_data_file_name = 'tweets-experiments.csv'
+#tweet_data_file_name = 'tweets-experiments.json'
+tweet_data_file_name = 'alexandre.json'
 label_column_name = 'alexandre'
 
-fasttext_file_name = "data-for-fasttext"
-fasttext_model_file_path = "fasttext-model.bin"
+fasttext_file_name = 'data-for-fasttext'
+fasttext_model_file_path = 'fasttext-model.bin'
+fasttext_model_name = 'fasttext-model'
 fasttext_learning_rate = 1.
 fasttext_nb_epochs = 25
 fasttext_n_gram_max = 6
@@ -126,7 +127,7 @@ if(data_file_extension == '.csv'):
 elif(data_file_extension == '.json'):
   data_tweets = pd.read_json(os.path.join(tweet_data_file_dir, tweet_data_file_name), lines = True)[ selected_columns ]
 else :
-  raise Exception("???")
+  raise Exception("Expect file extensio to be either .csv or .json")
 
 
 # keeping only english
@@ -249,7 +250,7 @@ def draw_cluster_labelling(selected_items, label_selectors, right_class, project
   wrong_class = np.logical_and(selected_items, np.logical_not(label_selectors[right_class]))
   cluster_points = projected_data[wrong_class]
   plot.scatter(cluster_points[ :, 0 ], cluster_points[ :, 1 ], cluster_points[ :, 2 ], c = 'red')
-  plot.legend('Correct', 'Misclassified')
+  plot.legend(['Correct', 'Misclassified'])
   plt.title("Cluster " + cluster_name)
   plt.show()
   
@@ -352,6 +353,8 @@ fasttext_test_file_path = fasttext_file_name + '-test.txt'
 save_fasttext_data(fasttext_test_file_path, tweet_test_data)
 
 
+
+
 fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path,
                                               lr = fasttext_learning_rate,
                                               epoch = fasttext_nb_epochs,
@@ -365,5 +368,82 @@ print(f'Fasttext test results : precision at 1: {precision_at_1}, recall at 1: {
 
 
 
+
+
+def explore_fasttext(train_file_path,
+                      test_file_path,
+                      learning_rate_list,
+                      nb_epochs_list,
+                      n_gram_max_list,
+                      model_save_name,
+                      verbose = True):
+    best_precision = 0.
+    #best_recall = 0.
+    best_precision_params = {}
+    for learning_rate in learning_rate_list :
+      for nb_epochs in nb_epochs_list :
+        for n_gram_max in n_gram_max_list :
+          fasttext_model = fasttext.train_supervised(input = train_file_path,
+                                                        lr = learning_rate,
+                                                        epoch = nb_epochs,
+                                                        wordNgrams = n_gram_max,
+                                                        verbose = False)
+         (nb_samples, precision, recall) = fasttext_model.test(test_file_path)
+          if(precision > best_precision):
+            if(verbose):
+              print(f'>>> New best precision: {precision}, for lr={learning_rate}, nb_epochs={nb_epochs}, n_gram={n_gram_max}')
+            fasttext_model.save_model(model_save_name + '-best-precision.bin')
+            best_precision = precision
+            best_precision_params['learning_rate'] = learning_rate
+            best_precision_params['nb_epochs'] = nb_epochs
+            best_precision_params['n_gram_max'] = n_gram_max
+    return best_precision, best_precision_params
+
+"""
+NOTE: the fasttext module is buggy and precision==recall for some reason
+          if(recall > best_recall):
+            print(f'New best recall: {recall}')
+            fasttext_model.save_model(model_save_name + '-best-recall.bin')
+            best_recall = recall
+"""
+
+learning_rate_list =[ 0.01, 0.05, 0.1, 0.5, 1. ]
+nb_epochs_list =[ 9, 21, 36, 48, 65 ]
+n_gram_max_list =[ 1, 2, 3, 6 ]
+best_precision, best_params = explore_fasttext(fasttext_train_file_path,
+                                   fasttext_test_file_path,
+                                   learning_rate_list,
+                                   nb_epochs_list,
+                                   n_gram_max_list,
+                                   fasttext_model_name)
+print(f'Best score = {best_precision}')
+
+learning_rate_list =[ 0.1, ]
+nb_epochs_list =[ 16, 18, 20, 21, 22, 25, 28, 31, 36, 39, 42, 45 ]
+n_gram_max_list =[ 1, 6 ]
+best_precision, best_params = explore_fasttext(fasttext_train_file_path,
+                                   fasttext_test_file_path,
+                                   learning_rate_list,
+                                   nb_epochs_list,
+                                   n_gram_max_list,
+                                   fasttext_model_name)
+print(f'Best score(second pass) = {best_precision}')
+
+
+learning_rate_list =[ 0.08, 0.09, 0.1, 0.11, 0.12 ]
+nb_epochs_list =[ 20, 21, 22 ]
+n_gram_max_list =[ 1, ]
+best_precision, best_params = explore_fasttext(fasttext_train_file_path,
+                                   fasttext_test_file_path,
+                                   learning_rate_list,
+                                   nb_epochs_list,
+                                   n_gram_max_list,
+                                   fasttext_model_name)
+print(f'Best score(third pass) = {best_precision}')
+
+# winner = lr=0.1, ep=21, ngram=1
+
+
+fasttext_model = fasttext.load_model(fasttext_model_name + "-best-precision.bin")
 
 
