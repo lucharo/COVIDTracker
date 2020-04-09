@@ -24,7 +24,6 @@ import fasttext
 keyword_file_path = "keywords-experiments.txt"
 
 #tweet_data_file_dir = "."
-tweet_data_file_dir = "/home/alex/projects/pandemic/twita-traeka/COVIDTracker/DataToLabel"
 tweet_data_file_dir = "../COVIDTracker/DataToLabel"
 #tweet_data_file_dir = os.getcwd()
 # NOTE: there should be a separate file for the train and test sets
