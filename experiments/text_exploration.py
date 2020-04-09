@@ -17,6 +17,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectoriz
 from sklearn.model_selection import train_test_split as skl_train_test_split
 import sqlite3
 from textblob import TextBlob
+import fasttext
 
 #
 
@@ -287,7 +288,7 @@ save_fasttext_data(fasttext_train_file_path, tweet_train_data)
 fasttext_test_file_path = fasttext_file_name + '-test.txt'
 save_fasttext_data(fasttext_test_file_path, tweet_test_data)
 
-import fasttext
+
 fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path)
 fasttext_model.save_model(fasttext_model_file_path)
 # very disappointing:
