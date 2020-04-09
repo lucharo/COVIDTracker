@@ -15,7 +15,7 @@ from sklearn.decomposition import TruncatedSVD as skl_TruncatedSVD
 from sklearn.feature_extraction.text import CountVectorizer as skl_CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectorizer
 from sklearn.model_selection import train_test_split as skl_train_test_split
-import sqlite3
+#import sqlite3
 from textblob import TextBlob
 import fasttext
 
@@ -39,6 +39,7 @@ fasttext_learning_rate = 1.
 fasttext_nb_epochs = 25
 fasttext_n_gram_max = 6
 
+
 replacement_text_url = 'url'
 replacement_text_mention = 'mn'
 
@@ -52,6 +53,7 @@ do_process_labelled_data = True
 tfidf_max_nb_tokens = 500
 ngram_max = 1
 
+do_seed_clustering = True
 nb_clusters = 8
 
 cluster_colors =[ 'blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'orange' ]
@@ -143,6 +145,8 @@ if(do_process_labelled_data):
   if(label_column_name != 'label'):
     data_tweets.rename(columns = { label_column_name : 'label', }, inplace = True)
   data_tweets = data_tweets[ data_tweets.label.notna() ]
+  data_tweets.reset_index(drop = False, inplace = True)
+  data_tweets.rename(columns = { 'index' : 'original_index' }, inplace = True)
 
 # prepare the text
 #### data_tweetst['text'].str.lower()
@@ -191,7 +195,29 @@ tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
 # clustering:
 # TODO: using default parameters, could try other parameterrs
 # see https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html
-clusterer = skl_KMeans(n_clusters = nb_clusters)
+
+if(do_seed_clustering):
+  indexes_of_center_for_0 = data_tweets[data_tweets.label == 0. ].index[0:5]
+  indexes_of_center_for_1 = data_tweets[data_tweets.label == 1. ].index[0:2]
+  index_of_center_for_9 = data_tweets[data_tweets.label == 9. ].index[0]
+  kmeans_initial_centers = np.concatenate((tfidf_vectors[indexes_of_center_for_0[0]].todense(),
+                                               tfidf_vectors[indexes_of_center_for_0[1]].todense(),
+                                               tfidf_vectors[indexes_of_center_for_0[2]].todense(),
+                                               tfidf_vectors[indexes_of_center_for_0[3]].todense(),
+                                               tfidf_vectors[indexes_of_center_for_0[4]].todense(),
+                                               tfidf_vectors[indexes_of_center_for_1[0]].todense(),
+                                               tfidf_vectors[indexes_of_center_for_1[1]].todense(),
+                                               tfidf_vectors[index_of_center_for_9].todense()),
+                                               axis = 0)
+  color_for_0 = cluster_colors[0]
+  color_for_1 = cluster_colors[1]
+  color_for_9 = cluster_colors[2]
+  cluster_colors =[ color_for_0, color_for_0, color_for_0, color_for_0, color_for_0, color_for_1, color_for_1, color_for_9 ] 
+  if(nb_clusters > kmeans_initial_centers.shape[0]):
+    raise Exception("add centers in the code above this exception")
+  clusterer = skl_KMeans(n_clusters = nb_clusters, init = kmeans_initial_centers, n_init = 0)
+else :
+  clusterer = skl_KMeans(n_clusters = nb_clusters)
 clusters = clusterer.fit(tfidf_vectors)
 cluster_labels = clusters.predict(tfidf_vectors)
 
@@ -270,7 +296,8 @@ for topic_summary in topic_summaries :
   print(topic_summary)
 
 
-# prepare for fasttext
+# FASTTEXT
+
 
 def save_fasttext_data(file_path, tweet_data):
   fasttext_file = open(file_path, 'w')
