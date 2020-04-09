@@ -35,6 +35,9 @@ label_column_name = 'alexandre'
 
 fasttext_file_name = "data-for-fasttext"
 fasttext_model_file_path = "fasttext-model.bin"
+fasttext_learning_rate = 1.
+fasttext_nb_epochs = 25
+fasttext_n_gram_max = 6
 
 replacement_text_url = 'url'
 replacement_text_mention = 'mn'
@@ -262,7 +265,7 @@ def compute_count_vectors(train_corpus, test_corpus = None):
 
 count_vector_encoder, count_vectors = compute_count_vectors(data_tweets['prepared_text'])
 count_vector_vocabulary = count_vector_encoder.get_feature_names()
-topic_decomposition, topic_summaries = create_LDA_topics(8, count_vectors, count_vector_vocabulary, nb_top_words = 21)
+topic_decomposition, topic_summaries = create_LDA_topics(8, count_vectors, count_vector_vocabulary, nb_top_words = 21, LDA_max_iter = 10)
 for topic_summary in topic_summaries :
   print(topic_summary)
 
@@ -289,11 +292,18 @@ fasttext_test_file_path = fasttext_file_name + '-test.txt'
 save_fasttext_data(fasttext_test_file_path, tweet_test_data)
 
 
-fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path)
+fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path,
+                                              lr = fasttext_learning_rate,
+                                              epoch = fasttext_nb_epochs,
+                                              wordNgrams = fasttext_n_gram_max)
 fasttext_model.save_model(fasttext_model_file_path)
 # very disappointing:
 print(fasttext_model.predict('this is an attempt, do i have the symptoms?'))
 print(fasttext_model.predict('i have high fever and dry cough.'))
 (nb_samples, precision_at_1, recall_at_1) = fasttext_model.test(fasttext_test_file_path)
 print(f'Fasttext test results : precision at 1: {precision_at_1}, recall at 1: {recall_at_1}')
+
+
+
+
 

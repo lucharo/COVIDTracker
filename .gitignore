@@ -4,3 +4,4 @@ MillionSearchBroad/
 .ipynb_checkpoints
 .DS_Store
 experiments/tweets-experiments.csv
+experiments/__pycache__/
