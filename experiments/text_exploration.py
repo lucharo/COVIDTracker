@@ -196,7 +196,7 @@ tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
 # TODO: using default parameters, could try other parameterrs
 # see https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html
 
-if(do_seed_clustering):
+if(do_process_labelled_data and do_seed_clustering):
   indexes_of_center_for_0 = data_tweets[data_tweets.label == 0. ].index[0:5]
   indexes_of_center_for_1 = data_tweets[data_tweets.label == 1. ].index[0:2]
   index_of_center_for_9 = data_tweets[data_tweets.label == 9. ].index[0]
@@ -239,6 +239,40 @@ for cluster_index in range(nb_clusters):
 plot.legend(range(nb_clusters))
 
 plt.show()
+
+
+def draw_cluster_labelling(selected_items, label_selectors, right_class, projected_data, cluster_name):
+  cluster_figure = plt.figure()
+  plot = cluster_figure.add_subplot(111, projection = '3d')
+  right_class_selector = np.logical_and(selected_items, label_selectors[right_class])
+  cluster_points = projected_data[right_class_selector]
+  plot.scatter(cluster_points[ :, 0 ], cluster_points[ :, 1 ], cluster_points[ :, 2 ], c = 'blue')
+  wrong_class = np.logical_and(selected_items, np.logical_not(label_selectors[right_class]))
+  cluster_points = projected_data[wrong_class]
+  plot.scatter(cluster_points[ :, 0 ], cluster_points[ :, 1 ], cluster_points[ :, 2 ], c = 'red')
+  plot.legend('Correct', 'Misclassified')
+  plt.title("Cluster " + cluster_name)
+  plt.show()
+  
+
+# This makes a graph of cluster-mislabelled and cluster-correctly-labelled items
+if(do_process_labelled_data and do_seed_clustering):
+  have_label_0 = data_tweets['label'].values == 0.
+  have_label_1 = data_tweets['label'].values == 1.
+  have_label_9 = data_tweets['label'].values == 9.
+  class_selectors =[ have_label_0, have_label_1, have_label_9 ]
+  selected_items = np.logical_or(cluster_labels == 0, cluster_labels == 1)
+  selected_items = np.logical_or(selected_items, np.logical_or(cluster_labels == 2, cluster_labels == 3))
+  selected_items = np.logical_or(selected_items, cluster_labels == 4)
+  draw_cluster_labelling(selected_items, class_selectors, 0, projected_data, '0')
+  selected_items = np.logical_or(cluster_labels == 5, cluster_labels == 6)
+  draw_cluster_labelling(selected_items, class_selectors, 1, projected_data, '1')
+  draw_cluster_labelling(cluster_labels == 7, class_selectors, 2, projected_data, '9')
+
+  
+
+
+
 
 
 
