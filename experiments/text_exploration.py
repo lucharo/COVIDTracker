@@ -14,6 +14,7 @@ from sklearn.decomposition import LatentDirichletAllocation as skl_LatentDirichl
 from sklearn.decomposition import TruncatedSVD as skl_TruncatedSVD
 from sklearn.feature_extraction.text import CountVectorizer as skl_CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectorizer
+from sklearn.model_selection import train_test_split as skl_train_test_split
 import sqlite3
 from textblob import TextBlob
 
@@ -21,12 +22,18 @@ from textblob import TextBlob
 
 keyword_file_path = "keywords-experiments.txt"
 
-tweet_data_file_dir = "."
-tweet_data_file_dir = os.getcwd()
+#tweet_data_file_dir = "."
+tweet_data_file_dir = "/home/alex/projects/pandemic/twita-traeka/COVIDTracker/DataToLabel"
+tweet_data_file_dir = "../COVIDTracker/DataToLabel"
+#tweet_data_file_dir = os.getcwd()
 # NOTE: there should be a separate file for the train and test sets
-tweet_data_file_name = "tweets-experiments.csv"
+#tweet_data_file_name = "tweets-experiments.csv"
 #tweet_data_file_name = "tweets-experiments.json"
+tweet_data_file_name = "alexandre.json"
+label_column_name = 'alexandre'
 
+fasttext_file_name = "data-for-fasttext"
+fasttext_model_file_path = "fasttext-model.bin"
 
 replacement_text_url = 'url'
 replacement_text_mention = 'mn'
@@ -34,6 +41,8 @@ replacement_text_mention = 'mn'
 tfidf_max_nb_tokens = None
 ngram_max = 6
 
+do_check_lang = False
+do_process_labelled_data = True
 
 # for starters:
 tfidf_max_nb_tokens = 500
@@ -98,22 +107,38 @@ keywords = read_keyword_list(keyword_file_path)
 #data_tweets = pd.DataFrame(tweets_json)
 
 data_file_extension = os.path.splitext(tweet_data_file_name)[-1]
+
+selected_columns =[ 'text' ]
+
+if(do_check_lang):
+  selected_columns +=[ 'lang' ]
+
+if(do_process_labelled_data):
+  selected_columns +=[ label_column_name ]
+
 if(data_file_extension == '.csv'):
-  data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name), usecols =['text', 'lang'])
+  data_tweets = pd.read_csv(os.path.join(tweet_data_file_dir, tweet_data_file_name), usecols = selected_columns)
 elif(data_file_extension == '.json'):
-  data_tweets = pd.read_json(os.path.join(tweet_data_file_dir, tweet_data_file_name), lines = True)[ ['text', 'lang'] ]
+  data_tweets = pd.read_json(os.path.join(tweet_data_file_dir, tweet_data_file_name), lines = True)[ selected_columns ]
 else :
   raise Exception("???")
 
+
 # keeping only english
-data_tweets = data_tweets[data_tweets.lang == 'en'][['text']]
+if(do_check_lang):
+  selected_columns.remove('lang')
+  data_tweets = data_tweets[data_tweets.lang == 'en'][ selected_columns ]
 
 # removing RT's
 data_tweets['RT_filter'] = data_tweets['text'].str.split().str.get(0)
-data_tweets = data_tweets[data_tweets.RT_filter != 'RT'][['text']]
+data_tweets = data_tweets[data_tweets.RT_filter != 'RT'][ selected_columns ]
 
 
-
+# selected only the labelled data :
+if(do_process_labelled_data):
+  if(label_column_name != 'label'):
+    data_tweets.rename(columns = { label_column_name : 'label', }, inplace = True)
+  data_tweets = data_tweets[ data_tweets.label.notna() ]
 
 # prepare the text
 #### data_tweetst['text'].str.lower()
@@ -241,9 +266,33 @@ for topic_summary in topic_summaries :
   print(topic_summary)
 
 
+# prepare for fasttext
+
+def save_fasttext_data(file_path, tweet_data):
+  fasttext_file = open(file_path, 'w')
+  nb_items = len(tweet_data)
+  for row_index in range(nb_items):
+    row = tweet_data.iloc[row_index]
+    label = row['label']
+    line = '__label__'
+    line += 'no' if(label < 0.5) else('yes' if(label < 1.5) else 'not_sure')
+    line += ' '
+    fasttext_file.write(line + row['prepared_text'] + '\n')
 
 
+tweet_train_data, tweet_test_data = skl_train_test_split(data_tweets, test_size = 0.2, shuffle = True)
 
+fasttext_train_file_path = fasttext_file_name + '-train.txt'
+save_fasttext_data(fasttext_train_file_path, tweet_train_data)
+fasttext_test_file_path = fasttext_file_name + '-test.txt'
+save_fasttext_data(fasttext_test_file_path, tweet_test_data)
 
-
+import fasttext
+fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path)
+fasttext_model.save_model(fasttext_model_file_path)
+# very disappointing:
+print(fasttext_model.predict('this is an attempt, do i have the symptoms?'))
+print(fasttext_model.predict('i have high fever and dry cough.'))
+(nb_samples, precision_at_1, recall_at_1) = fasttext_model.test(fasttext_test_file_path)
+print(f'Fasttext test results : precision at 1: {precision_at_1}, recall at 1: {recall_at_1}')
 
