@@ -180,7 +180,16 @@ tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
 
 
 
+# STATISTICS ABOUT LABELLED DATA
 
+if(do_process_labelled_data):
+  counts = data_tweets['label'].groupby(data_tweets.label).count()
+  total = np.sum(counts.values)
+  for label in counts.keys():
+    pct = 100. * counts[label] / total
+    print(f'Label {label:.0f} : {pct:.2f}%({counts[label]}/{total})')
+
+  
 
 
 
@@ -215,7 +224,7 @@ if(do_process_labelled_data and do_seed_clustering):
   cluster_colors =[ color_for_0, color_for_0, color_for_0, color_for_0, color_for_0, color_for_1, color_for_1, color_for_9 ] 
   if(nb_clusters > kmeans_initial_centers.shape[0]):
     raise Exception("add centers in the code above this exception")
-  clusterer = skl_KMeans(n_clusters = nb_clusters, init = kmeans_initial_centers, n_init = 0)
+  clusterer = skl_KMeans(n_clusters = nb_clusters, init = kmeans_initial_centers, n_init = 1)
 else :
   clusterer = skl_KMeans(n_clusters = nb_clusters)
 clusters = clusterer.fit(tfidf_vectors)
@@ -253,7 +262,21 @@ def draw_cluster_labelling(selected_items, label_selectors, right_class, project
   plot.legend(['Correct', 'Misclassified'])
   plt.title("Cluster " + cluster_name)
   plt.show()
-  
+
+
+def print_cluster_precision_stats(cluster_name, selected_items, label_selectors):
+  cluster_size = np.sum(selected_items)
+  nb_intersections_with_0 = np.sum(np.logical_and(selected_items, label_selectors[0]))
+  pct_intersection_with_0 = 100. * nb_intersections_with_0 / cluster_size
+  nb_intersections_with_1 = np.sum(np.logical_and(selected_items, label_selectors[1]))
+  pct_intersection_with_1 = 100. * nb_intersections_with_1 / cluster_size
+  nb_intersections_with_9 = np.sum(np.logical_and(selected_items, label_selectors[2]))
+  pct_intersection_with_9 = 100. * nb_intersections_with_9 / cluster_size
+  print(f'Cluster {cluster_name} : size: {cluster_size}, '
+         f'0 : {pct_intersection_with_0:0.2f}%({nb_intersections_with_0}), '
+         f'1 : {pct_intersection_with_1:0.2f}%({nb_intersections_with_1}), '
+         f'9 : {pct_intersection_with_9:0.2f}%({nb_intersections_with_9})')
+          
 
 # This makes a graph of cluster-mislabelled and cluster-correctly-labelled items
 if(do_process_labelled_data and do_seed_clustering):
@@ -264,10 +287,14 @@ if(do_process_labelled_data and do_seed_clustering):
   selected_items = np.logical_or(cluster_labels == 0, cluster_labels == 1)
   selected_items = np.logical_or(selected_items, np.logical_or(cluster_labels == 2, cluster_labels == 3))
   selected_items = np.logical_or(selected_items, cluster_labels == 4)
+  print_cluster_precision_stats('0', selected_items, class_selectors)
   draw_cluster_labelling(selected_items, class_selectors, 0, projected_data, '0')
   selected_items = np.logical_or(cluster_labels == 5, cluster_labels == 6)
+  print_cluster_precision_stats('1', selected_items, class_selectors)
   draw_cluster_labelling(selected_items, class_selectors, 1, projected_data, '1')
-  draw_cluster_labelling(cluster_labels == 7, class_selectors, 2, projected_data, '9')
+  selected_items = cluster_labels == 7
+  print_cluster_precision_stats('9', selected_items, class_selectors)
+  draw_cluster_labelling(selected_items, class_selectors, 2, projected_data, '9')
 
   
 
