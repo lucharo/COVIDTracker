@@ -38,7 +38,7 @@ nb_training_epochs = 10
 
 model_file_name = 'covditracker-bert.pt'
 
-data_dir_path = '../COVIDTracker/DataToLabel'
+data_dir_path = '../DataToLabel'
 data_file_path = os.path.join(data_dir_path, 'alexandre.json')
 
 
