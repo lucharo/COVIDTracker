@@ -3,12 +3,13 @@
 TODO list:
 - use a better optimizer(currently the model just train to answer 0)
 - better optimizer(rmsprop?)
-- add ana's data to the training
+
 - logits or softmax? the documentation on CrossEntropyLoss is slightly ambiguous
 DONE:
+- add ana's data to the training
+# TODO: schedule learning rate decay
 - try 3 classes instead of 2
 - try smaller size of the heads network
-# TODO: schedule learning rate decay
 """
 
 
@@ -38,8 +39,9 @@ nb_training_epochs = 10
 
 model_file_name = 'covditracker-bert.pt'
 
-data_dir_path = '../DataToLabel'
-data_file_path = os.path.join(data_dir_path, 'alexandre.json')
+#data_dir_path = '../COVIDTracker/DataToLabel'
+data_dir_path = './'
+data_file_path = os.path.join(data_dir_path, 'labels.json')
 
 
 """
@@ -73,20 +75,20 @@ if(loss_function_name == 'mse'):
     raise Exception('MSE loss to be used only with 2 classes')
 
 data = pd.read_json(data_file_path, lines = True)
-data = data[~ np.isnan(data.alexandre)]
+data = data[~ np.isnan(data.label)]
 
 if(not do_keep_9_label):
-  data['alexandre'] = data['alexandre'].apply(lambda x : 0. if x == 9. else x)
+  data['label'] = data['label'].apply(lambda x : 0. if x == 9. else x)
 else :
-  data['alexandre'] = data['alexandre'].apply(lambda x : 2. if x == 9. else x)
+  data['label'] = data['label'].apply(lambda x : 2. if x == 9. else x)
 
-label_list = np.sort(pd.unique(data['alexandre']))
+label_list = np.sort(pd.unique(data['label']))
 assert(list(label_list) ==([ 0., 1., 2. ] if do_keep_9_label else[ 0., 1.]))
 
 data = skl_shuffle(data).reset_index(drop = True)
 
 data_features = data['text'].apply(prepare_text)
-data_labels = data['alexandre']
+data_labels = data['label']
 del data
 
 train_features, test_features, train_labels, test_labels = skl_train_test_split(data_features, data_labels, test_size = 0.2)

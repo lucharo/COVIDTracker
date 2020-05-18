@@ -14,23 +14,43 @@ from sklearn.decomposition import LatentDirichletAllocation as skl_LatentDirichl
 from sklearn.decomposition import TruncatedSVD as skl_TruncatedSVD
 from sklearn.feature_extraction.text import CountVectorizer as skl_CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer as skl_TfidfVectorizer
+from sklearn.metrics import f1_score as skl_f1_score
+from sklearn.metrics import precision_score as skl_precision_score
+from sklearn.metrics import recall_score as skl_recall_score
 from sklearn.model_selection import train_test_split as skl_train_test_split
 #import sqlite3
 from textblob import TextBlob
 import fasttext
 
+
+do_topics = False
+do_clustering = False
+do_train_fasttext_ensemble = True
+do_try_fasttext_train = False
+do_show_fasttext_ensemble_scores = True
 #
 
 keyword_file_path = 'keywords-experiments.txt'
 
-#tweet_data_file_dir = "."
+
+"""
 tweet_data_file_dir = '../COVIDTracker/DataToLabel'
+tweet_data_file_name = 'alexandre.json'
+label_column_name = 'alexandre'
+"""
+tweet_data_file_dir = "./"
+tweet_data_file_name = 'labels.json'
+label_column_name = 'label'
+
+
 #tweet_data_file_dir = os.getcwd()
 # NOTE: there should be a separate file for the train and test sets
 #tweet_data_file_name = 'tweets-experiments.csv'
 #tweet_data_file_name = 'tweets-experiments.json'
-tweet_data_file_name = 'alexandre.json'
-label_column_name = 'alexandre'
+
+fasttext_model_dir = 'fasttext-models'
+do_make_fasttext_ensemble = do_train_fasttext_ensemble
+
 
 fasttext_file_name = 'data-for-fasttext'
 fasttext_model_file_path = 'fasttext-model.bin'
@@ -53,8 +73,11 @@ do_process_labelled_data = True
 tfidf_max_nb_tokens = 500
 ngram_max = 1
 
+
+
 do_seed_clustering = True
 nb_clusters = 8
+
 
 cluster_colors =[ 'blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 'orange' ]
 #
@@ -87,12 +110,15 @@ def replace_mentions(document):
 
 
 
-def prepare_text(document):
+def prepare_text(document, do_simplify_text = True):
   modified_document = document
   modified_document = replace_urls(modified_document)
   modified_document = replace_mentions(modified_document)
   splited_document =[ word.lower() for word in nltk.tokenize.word_tokenize(modified_document) ]
-  prepared_content =[ stemmer.stem(t) for t in splited_document if(t not in stopword_set) and(t.isalpha()) ]
+  if(do_simplify_text):
+    prepared_content =[ stemmer.stem(t) for t in splited_document if(t not in stopword_set) and(t.isalpha()) ]
+  else :
+    prepared_content = splited_document
   return ' '.join(prepared_content)
 
   
@@ -185,9 +211,12 @@ tfidf_vectors = tfidf_vectorizer.transform(data_tweets['prepared_text'])
 if(do_process_labelled_data):
   counts = data_tweets['label'].groupby(data_tweets.label).count()
   total = np.sum(counts.values)
+  max_class_size = 0.
   for label in counts.keys():
-    pct = 100. * counts[label] / total
-    print(f'Label {label:.0f} : {pct:.2f}%({counts[label]}/{total})')
+    size = counts[label] / total
+    print(f'Label {label:.0f} : {100.*size:.2f}%({counts[label]}/{total})')
+    if(size > max_class_size):
+      max_class_size = size
 
   
 
@@ -349,12 +378,12 @@ def compute_count_vectors(train_corpus, test_corpus = None):
     return count_vector_encoder, train_count_vectors, test_count_vectors
   return count_vector_encoder, train_count_vectors
 
-
-count_vector_encoder, count_vectors = compute_count_vectors(data_tweets['prepared_text'])
-count_vector_vocabulary = count_vector_encoder.get_feature_names()
-topic_decomposition, topic_summaries = create_LDA_topics(8, count_vectors, count_vector_vocabulary, nb_top_words = 21, LDA_max_iter = 10)
-for topic_summary in topic_summaries :
-  print(topic_summary)
+if(do_topics):
+  count_vector_encoder, count_vectors = compute_count_vectors(data_tweets['prepared_text'])
+  count_vector_vocabulary = count_vector_encoder.get_feature_names()
+  topic_decomposition, topic_summaries = create_LDA_topics(8, count_vectors, count_vector_vocabulary, nb_top_words = 21, LDA_max_iter = 10)
+  for topic_summary in topic_summaries :
+    print(topic_summary)
 
 
 # FASTTEXT
@@ -381,17 +410,17 @@ save_fasttext_data(fasttext_test_file_path, tweet_test_data)
 
 
 
-
-fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path,
+if(do_try_fasttext_train):
+  fasttext_model = fasttext.train_supervised(input = fasttext_train_file_path,
                                               lr = fasttext_learning_rate,
                                               epoch = fasttext_nb_epochs,
                                               wordNgrams = fasttext_n_gram_max)
-fasttext_model.save_model(fasttext_model_file_path)
-# very disappointing:
-print(fasttext_model.predict('this is an attempt, do i have the symptoms?'))
-print(fasttext_model.predict('i have high fever and dry cough.'))
-(nb_samples, precision_at_1, recall_at_1) = fasttext_model.test(fasttext_test_file_path)
-print(f'Fasttext test results : precision at 1: {precision_at_1}, recall at 1: {recall_at_1}')
+  fasttext_model.save_model(fasttext_model_file_path)
+  # very disappointing:
+  print(fasttext_model.predict('this is an attempt, do i have the symptoms?'))
+  print(fasttext_model.predict('i have high fever and dry cough.'))
+ (nb_samples, precision_at_1, recall_at_1) = fasttext_model.test(fasttext_test_file_path)
+  print(f'Fasttext test results : precision at 1: {precision_at_1}, recall at 1: {recall_at_1}')
 
 
 
@@ -403,10 +432,16 @@ def explore_fasttext(train_file_path,
                       nb_epochs_list,
                       n_gram_max_list,
                       model_save_name,
-                      verbose = True):
+                      model_save_dir,
+                      verbose = True,
+                      do_make_an_ensemble = False,
+                      ensemble_min_score = 0.82):
+    nb_saved_models = 0
     best_precision = 0.
     #best_recall = 0.
     best_precision_params = {}
+    if(do_make_an_ensemble):
+      previous_scores =[]
     for learning_rate in learning_rate_list :
       for nb_epochs in nb_epochs_list :
         for n_gram_max in n_gram_max_list :
@@ -416,15 +451,24 @@ def explore_fasttext(train_file_path,
                                                         wordNgrams = n_gram_max,
                                                         verbose = False)
          (nb_samples, precision, recall) = fasttext_model.test(test_file_path)
+          if(do_make_an_ensemble):
+            if(precision > ensemble_min_score):
+              if(precision not in previous_scores):
+                previous_scores.append(precision)
+                print(f'>>> Saving model with precision: {precision}, for lr={learning_rate}, nb_epochs={nb_epochs}, n_gram={n_gram_max}')
+                fasttext_model.save_model(os.path.join(model_save_dir, model_save_name + f'-{n_gram_max}-{learning_rate}-{nb_epochs}.bin'))
+                nb_saved_models += 1
           if(precision > best_precision):
             if(verbose):
               print(f'>>> New best precision: {precision}, for lr={learning_rate}, nb_epochs={nb_epochs}, n_gram={n_gram_max}')
-            fasttext_model.save_model(model_save_name + '-best-precision.bin')
+            if(not do_make_an_ensemble): # then save the best
+              fasttext_model.save_model(os.path.join(model_save_dir, model_save_name + '-best-precision.bin'))
+              nb_saved_models = 1
             best_precision = precision
             best_precision_params['learning_rate'] = learning_rate
             best_precision_params['nb_epochs'] = nb_epochs
             best_precision_params['n_gram_max'] = n_gram_max
-    return best_precision, best_precision_params
+    return best_precision, best_precision_params, nb_saved_models
 
 """
 NOTE: the fasttext module is buggy and precision==recall for some reason
@@ -434,43 +478,103 @@ NOTE: the fasttext module is buggy and precision==recall for some reason
             best_recall = recall
 """
 
-learning_rate_list =[ 0.01, 0.05, 0.1, 0.5, 1. ]
-nb_epochs_list =[ 9, 21, 36, 48, 65 ]
-n_gram_max_list =[ 1, 2, 3, 6 ]
-best_precision, best_params = explore_fasttext(fasttext_train_file_path,
+if(do_train_fasttext_ensemble):
+  learning_rate_list =[ 0.01, 0.05, 0.1, 0.5, 1. ]
+  nb_epochs_list =[ 9, 21, 36, 48, 65 ]
+  n_gram_max_list =[ 1, 2, 3, 6 ]
+  total_nb_saved_models = 0
+  best_precision, best_params, nb_saved_models = explore_fasttext(fasttext_train_file_path,
                                    fasttext_test_file_path,
                                    learning_rate_list,
                                    nb_epochs_list,
                                    n_gram_max_list,
-                                   fasttext_model_name)
-print(f'Best score = {best_precision}')
-
-learning_rate_list =[ 0.1, ]
-nb_epochs_list =[ 16, 18, 20, 21, 22, 25, 28, 31, 36, 39, 42, 45 ]
-n_gram_max_list =[ 1, 6 ]
-best_precision, best_params = explore_fasttext(fasttext_train_file_path,
+                                   fasttext_model_name +('-ens0' if do_make_fasttext_ensemble else ''),
+                                   fasttext_model_dir,
+                                   do_make_an_ensemble = do_make_fasttext_ensemble,
+                                   ensemble_min_score = max_class_size)
+  total_nb_saved_models += nb_saved_models
+  print(f'Best score = {best_precision}')
+  learning_rate_list =[ 0.1, ]
+  nb_epochs_list =[ 16, 18, 20, 22, 25, 28, 31, 36, 39, 42, 45 ]
+  n_gram_max_list =[ 1, 6 ]
+  best_precision, best_params, nb_saved_models = explore_fasttext(fasttext_train_file_path,
                                    fasttext_test_file_path,
                                    learning_rate_list,
                                    nb_epochs_list,
                                    n_gram_max_list,
-                                   fasttext_model_name)
-print(f'Best score(second pass) = {best_precision}')
-
-
-learning_rate_list =[ 0.08, 0.09, 0.1, 0.11, 0.12 ]
-nb_epochs_list =[ 20, 21, 22 ]
-n_gram_max_list =[ 1, ]
-best_precision, best_params = explore_fasttext(fasttext_train_file_path,
+                                   fasttext_model_name +('-ens1' if do_make_fasttext_ensemble else ''),
+                                   fasttext_model_dir,
+                                   do_make_an_ensemble = do_make_fasttext_ensemble,
+                                   ensemble_min_score = max_class_size)
+  total_nb_saved_models += nb_saved_models
+  print(f'Best score(second pass) = {best_precision}')
+  learning_rate_list =[ 0.08, 0.09, 0.11, 0.12 ]
+  nb_epochs_list =[ 20, 21, 22 ]
+  n_gram_max_list =[ 1, ]
+  best_precision, best_params, nb_saved_models = explore_fasttext(fasttext_train_file_path,
                                    fasttext_test_file_path,
                                    learning_rate_list,
                                    nb_epochs_list,
                                    n_gram_max_list,
-                                   fasttext_model_name)
-print(f'Best score(third pass) = {best_precision}')
+                                   fasttext_model_name +('-ens2' if do_make_fasttext_ensemble else ''),
+                                   fasttext_model_dir,
+                                   do_make_an_ensemble = do_make_fasttext_ensemble,
+                                   ensemble_min_score = max_class_size)
+  total_nb_saved_models += nb_saved_models
+  print(f'Best score(third pass) = {best_precision}')
 
-# winner = lr=0.1, ep=21, ngram=1
+
+def fasttext_ensemble_predict(fasttext_ensemble, features):
+  nb_features = len(features)
+  nb_models = len(fasttext_ensemble)
+  predict_results =[ model.predict(features) for model in fasttext_ensemble ]
+  predictions = np.array([[ 1. if(r[0][i][0] == '__label__yes') else 0. for r in predict_results ] for i in range(nb_features) ])
+  aggregated_predictions = np.sum(predictions, axis = 1) / nb_models
+  return np.round(aggregated_predictions)
+  
+
+def score_fasttext_ensemble(fasttext_ensemble, test_data):
+  # test_data is a dataframe: label(0-1-9), prepared_text
+  #precision, recall, f1
+  predicted_labels = fasttext_ensemble_predict(fasttext_ensemble, list(test_data['prepared_text'].values))
+  expected_labels = test_data['label'].apply(lambda x : 1. if abs(x -1.0)<.5 else 0.) 
+  precision = skl_precision_score(expected_labels, predicted_labels)
+  recall = skl_recall_score(expected_labels, predicted_labels)
+  return(precision, recall, 2. *(precision * recall) /(precision + recall))
+  
+
+if(do_show_fasttext_ensemble_scores):
+  #fasttext_ensemble = nb_saved_models *[ None, ]
+  fasttext_ensemble =[]
+  model_file_names =[]
+  for path, subdir, files in os.walk(fasttext_model_dir):
+    if(path != fasttext_model_dir):
+      continue
+    for model_file_name in[ f for f in files if f[-4:] == '.bin' ] :
+      fasttext_ensemble.append(fasttext.load_model(os.path.join(fasttext_model_dir, model_file_name)))
+      model_file_names.append(model_file_name)
+  scores = score_fasttext_ensemble(fasttext_ensemble, tweet_test_data)
+  print(f'Scores for fasttext ensemble: precision = {scores[0]}, recall = {scores[1]}, F1 = {scores[2]}')
+  fasttext_ensemble_size = len(fasttext_ensemble)
+  scores_n_last = fasttext_ensemble_size *[ None, ]
+  for i in range(fasttext_ensemble_size):
+    scores_n_last[i] = score_fasttext_ensemble(fasttext_ensemble[ -(i+1): ], tweet_test_data)
+  precisions =[ s[0] for s in scores_n_last ]
+  recalls =[ s[1] for s in scores_n_last ]
+  f1s =[ s[2] for s in scores_n_last ]
+  plt.plot(precisions)
+  plt.title('precision')
+  plt.show()
+  plt.plot(recalls)
+  plt.title('recall')
+  plt.show()
+  plt.title('F1')
+  plt.plot(f1s)
 
 
-fasttext_model = fasttext.load_model(fasttext_model_name + "-best-precision.bin")
+
+
+
+#fasttext_model = fasttext.load_model(fasttext_model_name + "-best-precision.bin")
 
 
