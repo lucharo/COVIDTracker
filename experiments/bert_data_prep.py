@@ -21,10 +21,13 @@ def tokenize_text_series(bert_model_name, text_series):
 def load_and_prepare_data(data_file_path,
                            bert_model_name,
                            do_convert_label_9_to_0 = True,
-                           test_size = 0.18):
+                           test_size = 0.18,
+                           cut = None):
   nb_classes = 2 if do_convert_label_9_to_0 else 3
   data = pd.read_json(data_file_path, lines = True)
   data = data[~ np.isnan(data.label)]
+  if(cut is not None):
+    data = data[ : cut ]
   data['label'] = data['label'].apply(np.long)
   if(do_convert_label_9_to_0):
     data['label'] = data['label'].apply(lambda x : 0 if x == 9 else x)

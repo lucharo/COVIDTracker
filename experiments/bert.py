@@ -3,10 +3,12 @@
 TODO list:
 - use a better optimizer(currently the model just train to answer 0)
 - better optimizer(rmsprop?)
-- batch/epochs etc : create and use DataLoader
-- logits or softmax? the documentation on CrossEntropyLoss is slightly ambiguous
-- # TODO:TO LOWER?(maybe tokenizer does this in uits own)
+- # TODO:TO LOWER?(maybe tokenizer does this in its own?)
+- TODO: use logits for mse?
+- todo: batchsampling seems to be slower and more cpu intensive
 DONE:
+- batch/epochs etc : create and use DataLoader
+- logits or softmax? the documentation on CrossEntropyLoss is slightly ambiguous -> this is logits
 - add ana's data to the training
 # TODO: schedule learning rate decay
 - try 3 classes instead of 2
@@ -31,20 +33,38 @@ from bert_data_prep import load_and_prepare_data
 
 
 
+mode = 0
+#debug_data_size = 150
+debug_data_size = None
+
 # == parameters ==
 
 
-#do_keep_9_label = True
-do_keep_9_label = False
-nb_classes = 3 if do_keep_9_label else 2
+do_keep_9_label = True
+#do_keep_9_label = False
 
-#loss_function_name = 'crossentropy'
-loss_function_name = 'mse'
+loss_function_name = 'crossentropy'
+#loss_function_name = 'mse'
 
+if(mode == 0):
+  do_keep_9_label = False
+  loss_function_name = 'mse'
+elif(mode == 1):
+  do_keep_9_label = False
+  loss_function_name = 'crossentropy'
+elif(mode == 2):
+  do_keep_9_label = True
+  loss_function_name = 'crossentropy'
+
+
+
+nb_training_epochs = 1
 #nb_training_epochs = 2
-nb_training_epochs = 10
+#nb_training_epochs = 10
 
 batch_size = 16
+
+nb_classes = 3 if do_keep_9_label else 2
 
 
 model_file_name = 'covditracker-bert.pt'
@@ -63,20 +83,19 @@ model_options = {
 
 model_options =[ nb_classes, ]
 # TODO: is that below correct?
-"""
 if(loss_function_name != 'crossentropy'):
   model_options +=[ 'softmax', ]
   # crossentropy usese the logits so no softmax
-"""
-model_options +=[ 'softmax' ]
 
 model_options =[ 20, 'relu', nb_classes, 'softmax' ]
 
 
 if(do_keep_9_label):
-  loss_class_weights =[ 1., 10., 1. ]
+  #loss_class_weights =[ 1., 10., 1. ]
+  loss_class_weights =[ 1., 1., 1. ]
 else :
-  loss_class_weights =[ 1., 10. ]
+  #loss_class_weights =[ 1., 10. ]
+  loss_class_weights =[ 1., 1. ]
 
 bert_model_name = 'bert-base-uncased'
 
@@ -98,7 +117,8 @@ if(loss_function_name == 'mse'):
   nb_classes ) = load_and_prepare_data(data_file_path,
                                         bert_model_name,
                                         do_convert_label_9_to_0 = not do_keep_9_label,
-                                        test_size = 0.18)
+                                        test_size = 0.18,
+                                        cut = debug_data_size)
 
 
 print(f'Size of training set: {len(train_features)}')
@@ -175,7 +195,7 @@ learning_rate = 0.01
 
 #torch_data_loader = torch_data.DataLoader(dataset =(train_features, train_labels))
 torch_sampler = torch_data.RandomSampler(train_features, replacement = False)
-torch_batch_sampler = torch_data.BatchSampler(torch_sampler, batch_size = batch_size, drop_last = True)
+torch_batch_sampler = torch_data.BatchSampler(torch_sampler, batch_size = batch_size, drop_last = False)
 
 
 def prepare_one_hot_outputs(nb_classes):
@@ -218,9 +238,10 @@ for epoch in range(nb_epochs):
     # TODO: what is the '[0] output ?
     model_output = bert_model(feature_batch, labels = label_batch)[1]
     if(loss_function_name == 'mse'):
+      # TODO be more efficient in the mse case
       loss_refs = torch.cat(tuple(loss_references.take(label_batch_values))).reshape(len(batch_indexes), 2)
     else :
-      loss_refs = loss_references.take(label_batch)
+      loss_refs = loss_references.take(label_batch).squeeze()
     loss = loss_function(model_output, loss_refs)
     loss_accumulator += loss.item()
     loss.backward()
@@ -244,8 +265,8 @@ bert_model.eval()
 confusion_matrix = np.zeros((nb_classes, nb_classes), dtype = int)
 
 with torch.no_grad():
-  for data_index, text in enumerate(test_features):
-    text = text.to(torch_device)
+  for data_index, text in test_features.items():
+    text = torch.tensor(text).long().to(torch_device).reshape([ 1, len(text) ])
     label = int(test_labels[data_index])
     model_output = bert_model(text)[0]
     # note: dont really need to softmax that
