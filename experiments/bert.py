@@ -27,7 +27,7 @@ import torch.optim as torch_optim
 import torch.nn.functional as torch_functional
 import torch.utils.data as torch_data
 
-from bert_data_prep import load_and_prepare_data, tokenize_text_series
+from bert_data_prep import load_and_prepare_data
 
 
 
@@ -80,6 +80,8 @@ else :
 
 bert_model_name = 'bert-base-uncased'
 
+nit_per_age = 1
+
 # == some checks ==
 
 if(loss_function_name == 'mse'):
@@ -92,10 +94,11 @@ if(loss_function_name == 'mse'):
 ( train_features,
   test_features,
   train_labels,
-  test_labels ) = load_and_prepare_data(data_file_path,
-                                         bert_model_name,
-                                         do_convert_label_9_to_0 = not do_keep_9_label,
-                                         test_size = 0.18)
+  test_labels,
+  nb_classes ) = load_and_prepare_data(data_file_path,
+                                        bert_model_name,
+                                        do_convert_label_9_to_0 = not do_keep_9_label,
+                                        test_size = 0.18)
 
 
 print(f'Size of training set: {len(train_features)}')
@@ -168,28 +171,29 @@ else :
 # == training ==
 
 nb_epochs = nb_training_epochs
-nit_per_age = 10
 learning_rate = 0.01
 
-torch_data_loader = torch_data.DataLoader(dataset =(train_features, train_labels))
-torch_sampler = torch_data.Sampler(torch_data_loader)
-torch_batch_sampler = torch_data.BatchSampler(torch_sampler, batch_size = batch_size)
+#torch_data_loader = torch_data.DataLoader(dataset =(train_features, train_labels))
+torch_sampler = torch_data.RandomSampler(train_features, replacement = False)
+torch_batch_sampler = torch_data.BatchSampler(torch_sampler, batch_size = batch_size, drop_last = True)
 
 
 def prepare_one_hot_outputs(nb_classes):
   outputs = np.identity(nb_classes)
-  return[ torch.tensor(outputs[ i, : ]).float().to(torch_device)
-           for i in range(nb_classes) ]
+  return np.array([ torch.tensor(outputs[ i, : ]).float().to(torch_device)
+                         for i in range(nb_classes) ])
+
+def prepare_class_index_outputs(nb_classes):
+  #return np.array([ torch.tensor([ c, ]).long().to(torch_device) for c in range(nb_classes) ])
+  return torch.tensor([[ c, ] for c in range(nb_classes) ]).long().to(torch_device)
 
 
 if(loss_function_name == 'mse'):
   loss_references = prepare_one_hot_outputs(nb_classes)
   training_outputs = loss_references
 else :
-  loss_references =  [ torch.tensor([ i, ]).long().to(torch_device)
-                       for i in range(nb_classes) ]
-  training_outputs =[ torch.tensor([ i, ]).long().to(torch_device)
-                       for i in range(nb_classes) ]
+  loss_references =  prepare_class_index_outputs(nb_classes)
+  training_outputs = loss_references
 
 
 optimizer = torch_optim.SGD(bert_model.classifier.parameters(), lr = learning_rate)
@@ -203,18 +207,26 @@ bert_model.train()
 
 for epoch in range(nb_epochs):
   print(f'Epoch {epoch}/{nb_epochs}')
-  for feature_batch, label_batch in torch_batch_sampler :
-    feature_batch = feature_batch.to(torch_device)
-    label_batch = label_batch.to(torch_device)
+  batch_count = 0
+  for batch_indexes in torch_batch_sampler :
+    batch_count += 1
+    feature_batch = train_features.values.take(batch_indexes)
+    feature_batch = torch.tensor(list(feature_batch)).long().to(torch_device)
+    label_batch_values = train_labels.values.take(batch_indexes)
+    label_batch = torch.tensor(np.expand_dims(label_batch_values, axis = 1)).long().to(torch_device)
     optimizer.zero_grad()
     # TODO: what is the '[0] output ?
-    model_output = bert_model(featreu_batch, labels = label_batch)[1]
-    loss = loss_function(model_output, loss_references[label_batch]) # ?
+    model_output = bert_model(feature_batch, labels = label_batch)[1]
+    if(loss_function_name == 'mse'):
+      loss_refs = torch.cat(tuple(loss_references.take(label_batch_values))).reshape(len(batch_indexes), 2)
+    else :
+      loss_refs = loss_references.take(label_batch)
+    loss = loss_function(model_output, loss_refs)
     loss_accumulator += loss.item()
     loss.backward()
     optimizer.step()
     scheduler.step(loss)
-    if((data_index+1) % nit_per_age == 0):
+    if(batch_count % nit_per_age == 0):
       avg_loss = loss_accumulator / nit_per_age
       print(f'  Age average loss: {avg_loss}')
       loss_history.append(avg_loss)

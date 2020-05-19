@@ -11,7 +11,11 @@ from prepare_text import *
 def tokenize_text_series(bert_model_name, text_series):
   bert_tokenizer = BertTokenizer.from_pretrained(bert_model_name)
   model_input_length = bert_tokenizer.max_model_input_sizes['bert-base-uncased']
-  return text_series.apply(lambda t : bert_tokenizer.encode(t, return_tensors = 'pt', max_length = model_input_length))
+  return text_series.apply(lambda t :
+                              bert_tokenizer.encode(t,
+                                                       return_tensors = None,
+                                                       max_length = model_input_length,
+                                                       pad_to_max_length = True))
 
 
 def load_and_prepare_data(data_file_path,
@@ -22,7 +26,7 @@ def load_and_prepare_data(data_file_path,
   data = pd.read_json(data_file_path, lines = True)
   data = data[~ np.isnan(data.label)]
   data['label'] = data['label'].apply(np.long)
-  if(not do_keep_9_label):
+  if(do_convert_label_9_to_0):
     data['label'] = data['label'].apply(lambda x : 0 if x == 9 else x)
   else :
     data['label'] = data['label'].apply(lambda x : 2 if x == 9 else x)
@@ -31,18 +35,18 @@ def load_and_prepare_data(data_file_path,
   data_features = data['text'].apply(prepare_text)
   data_labels = data['label']
   del data
- ( train_features_df,
-    test_features_df,
-    train_labels_df,
-    test_labels_df ) = skl_train_test_split(data_features, data_labels, test_size = test_size)
-  train_features = tokenize_text_series(train_features_df['text'])
-  test_features = tokenizer_text_series(test_features_df['text'])
-  train_labels = train_labels_df.apply(lambda r : torch.tensor(row['label']).long())
-  test_labels = test_labels_df.apply(lambda r : torch.tensor(row['label']).long())
-  del train_features_df
-  del test_features_df
-  del train_labels_df
-  del test_labels_df
+ ( train_features_series,
+    test_features_series,
+    train_labels_series,
+    test_labels_series ) = skl_train_test_split(data_features, data_labels, test_size = test_size)
+  train_features = tokenize_text_series(bert_model_name, train_features_series)
+  test_features = tokenize_text_series(bert_model_name, test_features_series)
+  train_labels = train_labels_series #. apply(lambda r : torch.tensor(r).long())
+  test_labels = test_labels_series #. apply(lambda r : torch.tensor(r).long())
+  del train_features_series
+  del test_features_series
+  del train_labels_series
+  del test_labels_series
   return train_features, test_features, train_labels, test_labels, nb_classes
 
 
