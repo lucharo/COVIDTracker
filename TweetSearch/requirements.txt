@@ -26,7 +26,7 @@ geopy==1.21.0
 googletransx==2.4.2
 idna==2.9
 ipykernel==5.1.4
-ipython==7.13.0
+ipython==8.10.0
 ipython-genutils==0.2.0
 jedi==0.16.0
 jsonpickle==1.3
